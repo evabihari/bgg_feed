@@ -1,0 +1,15 @@
+{application, bgg_feed,
+ [
+  {description, "feeder http stream for BGG"},
+  {vsn, "1.0.0"},
+  {id, "git"},
+  {modules, []},
+  {registered, [bgg_feed_sup]},
+  {applications, [
+                  kernel,
+                  stdlib,
+                  inets
+                 ]},
+  {mod, { bgg_feed_app, []}},
+  {env, []}
+ ]}.
