@@ -276,10 +276,10 @@ write_header(File,[H|T]) ->
     end.
 
 write_record(File,Record,Size) ->
-    write_field(File,Record,1,Size).
+    write_field(File,Record,2,Size).
 
 write_field(File,Record,Size,Size) ->
-    file:write_file(File,io_lib:format("~p~n",[erlang:element(Size+1,Record)]),[append]);
+    file:write_file(File,io_lib:format("~p~n",[erlang:element(Size,Record)]),[append]);
 write_field(File,Record,N,Size) ->
-    file:write_file(File,io_lib:format("~p, ",[erlang:element(N+1,Record)]),[append]),
+    file:write_file(File,io_lib:format("~p, ",[erlang:element(N,Record)]),[append]),
     write_field(File,Record,N+1,Size).
