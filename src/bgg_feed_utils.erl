@@ -7,8 +7,10 @@
 -export([links/1]).
 -export([collect_types/1]).
 -export([store/1]).
--export([get_type/1]).
 -export([handle_item/2]).
+-export([new_items_with_type/2]).
+-export([do_logging_async/2]).
+-export([create_tables/0]).
 
 
 -include("../include/record.hrl").
@@ -21,11 +23,11 @@ titles(Url) ->
     [feeder_entries:get(title, Entry) || Entry <-  entries(Url)].
 
 feed(Url) ->
-    {ok, Feed, _} = bgg_feed_utils:all(Url),
+    {ok, Feed, _} = all(Url),
     Feed.
 
 entries(Url) ->
-    {ok, _, Entries} = bgg_feed_utils:all(Url),
+    {ok, _, Entries} = all(Url),
     Entries.
 
 links(Url) ->
@@ -33,6 +35,41 @@ links(Url) ->
 
 collect_types(Url) ->
     collect_types(links(Url),[]).
+
+store(Url) ->
+    {ok, Feeds, Entries} = all(Url),
+    store(Feeds, Entries).
+
+new_items_with_type(Type,Url) ->
+    Entries=entries(Url),
+    lists:flatten(lists:map(fun ( Entry) ->
+				    filter_by_prefix(Type,feeder_entries:get(link, Entry))
+			    end, Entries)).
+
+create_tables() ->
+    create_entries_table(),
+    create_games_table().
+
+do_logging_async(File, EtsAsList) ->
+    Fields=record_info(fields,game),
+    write_header(File,Fields),
+    F = fun(Record) ->
+		write_record(File,Record,length(Fields))
+	end,
+    lists:foreach(F,EtsAsList).
+
+get_type([undefined]) ->
+    undefined;
+get_type(undefined) ->
+    undefined;
+get_type(BinLink)->
+    Url=binary_to_list(BinLink),
+    case Url--?BGG_URL of
+	Url -> undefined;
+	PostFix1 -> PostFix=PostFix1--"/",
+		    Length=string:str(PostFix,"/"),
+		    list_to_atom(string:sub_string(PostFix,1,Length-1))
+    end.
 
 collect_types([],TypeList) ->
     TypeList;
@@ -51,23 +88,6 @@ collect_types([BinLink|BLinks],Types)->
 	       _ -> [NewType|Types]
 	   end,
     collect_types(BLinks,NTypes).
-
-get_type([undefined]) ->
-    undefined;
-get_type(undefined) ->
-    undefined;
-get_type(BinLink)->
-    Url=binary_to_list(BinLink),
-    case Url--?BGG_URL of
-	Url -> undefined;
-	PostFix1 -> PostFix=PostFix1--"/",
-		    Length=string:str(PostFix,"/"),
-		    list_to_atom(string:sub_string(PostFix,1,Length-1))
-    end.
-
-store(Url) ->
-    {ok, Feeds, Entries} = bgg_feed_utils:all(Url),
-    store(Feeds, Entries).
 
 store(_,[]) ->
     ok;
@@ -163,3 +183,69 @@ extractvalues([]) ->
 extractvalues([{_Type,_OID,Value}|List]) ->
     [lists:flatten(Value)|extractvalues(List)].
 
+filter_by_prefix(Type,Link) ->
+    Prefix=prefix(Type),
+    case string:str(binary_to_list(Link), Prefix) of
+	0 -> [];
+	_ -> Link
+    end.
+
+prefix(boardgame) ->
+    ?BGG_URL++"/boardgame/";
+prefix(video) ->
+    ?BGG_URL++"/video/";
+prefix(article) ->
+    ?BGG_URL++"/article/";
+prefix(Atom) ->
+    ?BGG_URL++"/"++atom_to_list(Atom)++"/".
+
+
+
+create_entries_table() ->
+    case mnesia:create_table(entries,
+			     [{disc_copies,[node()]},
+			      {type, ordered_set},
+			      {index, [id,updated]},
+			      {attributes, record_info(fields,entries)},
+			      {record_name,entries}]) of
+	{atomic, ok} -> ok;
+	{aborted,{already_exists,entries}} ->
+	    error_logger:info_msg("entries table already_exists");
+	Other ->
+	    error_logger:error_msg("entries table creation failed , reason = ~p~n",[Other])
+    end.
+
+create_games_table() ->
+    case mnesia:create_table(games,
+			     [{disc_copies,[node()]},
+			      {type, ordered_set},
+						%{index, [id]},
+			      {attributes, record_info(fields,game)},
+			      {record_name,game}]) of
+	{atomic, ok} -> ok;
+	{aborted,{already_exists,games}} ->
+	    error_logger:info_msg("games table already_exists");
+	Other ->
+	    error_logger:error_msg("games table creation failed , reason = ~p~n",[Other])
+    end.
+
+
+
+write_header(_File,[]) ->
+    ok;
+write_header(File,[H|T]) ->
+    file:write_file(File,io_lib:format("~p ",[H]),[append]),
+    case T of
+        [] ->  file:write_file(File,io_lib:format("~n ",[]),[append]);
+        _ ->  file:write_file(File,io_lib:format(", ",[]),[append]),
+              write_header(File, T)
+    end.
+
+write_record(File,Record,Size) ->
+    write_field(File,Record,1,Size).
+
+write_field(File,Record,Size,Size) ->
+    file:write_file(File,io_lib:format("~p~n",[erlang:element(Size+1,Record)]),[append]);
+write_field(File,Record,N,Size) ->
+    file:write_file(File,io_lib:format("~p, ",[erlang:element(N+1,Record)]),[append]),
+    write_field(File,Record,N+1,Size).

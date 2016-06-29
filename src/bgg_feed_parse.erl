@@ -33,7 +33,7 @@ init(Url) ->
 
 %% Create gen_fsm as part of a supervision tree.
 start_link(Url) ->
-  gen_fsm:start_link(?MODULE, Url, []).
+    gen_fsm:start_link(?MODULE, Url, []).
 
 %% Begin stream parsing over HTTP.
 resume(FsmRef) ->
