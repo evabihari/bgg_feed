@@ -110,8 +110,7 @@ store(Feeds,[Entry|Entries]) ->
 handle_item(boardgame,EntriesRecord) ->
     Link=binary_to_list(EntriesRecord#entries.link),
     GameUrlPostFix=Link--?BGG_URL,
-    [_,Id|_]=string:tokens(GameUrlPostFix,"/"),
-						% TODO: check that the item is not added to teh games table yet!
+    [_,Id|_]=string:tokens(GameUrlPostFix,"/"),				       
     Url=?BGG_URL++"/xmlapi"++GameUrlPostFix,
     case ets:lookup(games,Id) of
 	[] -> new_game(Id, Url, EntriesRecord);
@@ -123,15 +122,16 @@ handle_item(_Type,_EntriesRecord) ->
 new_game(Id, Url, EntriesRecord) ->
     case httpc:request(Url) of
 	{error, socket_closed_remotely} ->
-	    io:format("socket closed remotely, Url=~p let's wait and try again~n",[Url]),
+	    io:format("socket closed remotely, Url=~p let's wait and try again~n",
+		      [Url]),
 	    timer:sleep(10000),
 	    handle_item(boardgame,EntriesRecord);
 	{error,Reason} ->
-	    io:format("hhtpc:request returened error with Reason: ~p~n let's wait and try again~n",[Reason]),
+	    io:format("hhtpc:request returened error with Reason: ~p~n let's
+ wait and try again~n",[Reason]),
 	    timer:sleep(10000),
 	    handle_item(boardgame,EntriesRecord);
 	{ok, {{"HTTP/1.1",200,"OK"},_Options,ResponseBody}} ->
-						% {{"HTTP/1.1",200,"OK"},_Options,ResponseBody}=Result,
 	    io:format("http request towards ~p got OK ~n",[Url]),
 	    {Xml,_}=xmerl_scan:string(ResponseBody),
 	    {boardgames,_,[_,Data|_]}=xmerl_lib:simplify_element(Xml),
@@ -146,6 +146,7 @@ new_game(Id, Url, EntriesRecord) ->
 	    GameDesigners=find_tupples(Properties,boardgamedesigner),
 	    Categories=find_tupples(Properties,boardgamecategory),
 	    Types=find_tupples(Properties,boardgamesubdomain),
+	    Lang_dependence=categorize(find_poll(Properties,language_dependence)),
 	    Game=#game{
 		    id=Id,
 		    name=extractvalue(Name),
@@ -157,7 +158,8 @@ new_game(Id, Url, EntriesRecord) ->
 		    publishers=extractvalues(Publishers),
 		    gamedesigners=extractvalues(GameDesigners),
 		    categories=extractvalues(Categories),
-		    types=extractvalues(Types)
+		    types=extractvalues(Types),
+		    lang_dependence=Lang_dependence
 		   },
 	    mnesia:dirty_write(games,Game);
 	{ok, {{_,ErrorCode,ErrorReason},_,_}} ->
@@ -183,6 +185,42 @@ extractvalues([]) ->
 extractvalues([{_Type,_OID,Value}|List]) ->
     [lists:flatten(Value)|extractvalues(List)].
 
+find_poll([],_) ->
+    [];
+find_poll([{poll,[{name,Type},{title,_Title},{totalvotes,TotalVotes}],Result}|_List],
+	  Type) ->
+    {{totalvotes,TotalVotes},Result};
+find_poll([T|List],Type) when is_atom(Type) ->
+    find_poll([T|List],atom_to_list(Type));
+find_poll([_T|List],Type) ->
+    find_poll(List,Type).
+
+categorize({{totalvotes,0},_ResultList}) -> 0;
+categorize({{totalvotes,TotalVotes},ResultList}) ->
+    [_,R2|_R3]=ResultList,
+    {results,[],SubRList}=R2,
+    VoteList=extract(SubRList,list_to_integer(TotalVotes)),
+    {MaxLevel,_MaxText,_MaxValue}=find_maximum(VoteList,{0,"N/A",0}),
+    MaxLevel. 
+
+extract([],_) ->
+    [];
+extract([{result,Result,_}|List],TotalVotes) ->
+    [extractResult(Result,TotalVotes)|extract(List,TotalVotes)];
+extract([H|List],TotalVotes) ->
+    extract(List,TotalVotes).
+
+extractResult([{level,Level},{value,Value},{numvotes,Num}],TotalVotes)->
+    {Level, Value,list_to_integer(Num)/TotalVotes*100}.
+
+find_maximum([],{MaxLevel,MaxText,MaxValue}) ->
+    {MaxLevel,MaxText,MaxValue};
+find_maximum([{Level,Text,Percent}|List],{MaxLevel,MaxText,MaxValue}) 
+  when Percent > MaxValue ->
+    find_maximum(List,{Level,Text,Percent});  
+find_maximum([H|List],{MaxLevel,MaxText,MaxValue}) ->
+    find_maximum(List,{MaxLevel,MaxText,MaxValue}).
+    
 filter_by_prefix(Type,Link) ->
     Prefix=prefix(Type),
     case string:str(binary_to_list(Link), Prefix) of
@@ -198,8 +236,6 @@ prefix(article) ->
     ?BGG_URL++"/article/";
 prefix(Atom) ->
     ?BGG_URL++"/"++atom_to_list(Atom)++"/".
-
-
 
 create_entries_table() ->
     case mnesia:create_table(entries,
@@ -228,8 +264,6 @@ create_games_table() ->
 	Other ->
 	    error_logger:error_msg("games table creation failed , reason = ~p~n",[Other])
     end.
-
-
 
 write_header(_File,[]) ->
     ok;

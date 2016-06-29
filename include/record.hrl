@@ -50,5 +50,6 @@
   publishers,
   gamedesigners,
   categories,
-  types
+  types,
+  lang_dependence
   }).
