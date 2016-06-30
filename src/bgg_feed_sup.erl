@@ -17,7 +17,7 @@ start_link() ->
     supervisor:start_link({local, ?MODULE}, ?MODULE, []).
 
 init([]) ->
-        {ok, { {simple_one_for_one, 1, 1}, [child_spec()]} }.
+        {ok, { {simple_one_for_one, 5, 1}, [child_spec()]} }.
 
 %% Helper macro for declaring children of supervisor
 child_spec() -> {

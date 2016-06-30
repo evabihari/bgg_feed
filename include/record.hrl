@@ -1,5 +1,6 @@
 -define(BGG_URL,"http://boardgamegeek.com").
 -define(BGG_RSS_FEED,"http://boardgamegeek.com/recentadditions/rss?domain=boardgame").
+-define(FREQ, 300000).
 
 -record(enclosure, {
   url :: undefined | binary(),

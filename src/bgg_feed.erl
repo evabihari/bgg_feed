@@ -23,7 +23,8 @@ start() ->
     mnesia:start(),
     %% create_feed_table(),
     bgg_feed_utils:create_tables(),
-    application:start(?MODULE).
+    application:start(?MODULE),
+    run().
 
 stop() ->
     application:stop(?MODULE).
@@ -65,10 +66,11 @@ run(Url) ->
     register(run,Pid).
 
 loop(Url) ->
+    io:format("loop() ~n",[]),
     receive
 	stop -> io:format("run loop has been stopped",[])
     after
-	300000 ->
+	?FREQ ->
 	    io:format("Timeout, games table size=~p~n",[mnesia:table_info(games,size)]),
 	    bgg_feed_utils:store(Url),
 	    get_new_items(boardgame),

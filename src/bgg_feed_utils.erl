@@ -51,6 +51,7 @@ create_tables() ->
     create_games_table().
 
 do_logging_async(File, EtsAsList) ->
+    file:delete(File),
     Fields=record_info(fields,game),
     write_header(File,Fields),
     F = fun(Record) ->
@@ -127,12 +128,12 @@ new_game(Id, Url, EntriesRecord) ->
 	    timer:sleep(10000),
 	    handle_item(boardgame,EntriesRecord);
 	{error,Reason} ->
-	    io:format("hhtpc:request returened error with Reason: ~p~n let's
+	    io:format("hhtpc:request returned error with Reason: ~p~n let's
  wait and try again~n",[Reason]),
 	    timer:sleep(10000),
 	    handle_item(boardgame,EntriesRecord);
 	{ok, {{"HTTP/1.1",200,"OK"},_Options,ResponseBody}} ->
-	    io:format("http request towards ~p got OK ~n",[Url]),
+	    %% io:format("http request towards ~p got OK ~n",[Url]),
 	    {Xml,_}=xmerl_scan:string(ResponseBody),
 	    {boardgames,_,[_,Data|_]}=xmerl_lib:simplify_element(Xml),
 	    {boardgame,_,Properties}=Data,
@@ -161,7 +162,7 @@ new_game(Id, Url, EntriesRecord) ->
 		    types=extractvalues(Types),
 		    lang_dependence=Lang_dependence
 		   },
-	    mnesia:dirty_write(games,Game);
+	    mnesia:dirty_write(games,Game),
 	{ok, {{_,ErrorCode,ErrorReason},_,_}} ->
 	    io:format("request towards ~p failed with ErrorCode=~p, ErrorReason=~p~n",
 		      [Url,ErrorCode,ErrorReason])
@@ -183,23 +184,29 @@ extractvalue([{Type,OID,Value}|_]) ->
 extractvalues([]) ->
     [];
 extractvalues([{_Type,_OID,Value}|List]) ->
-    [lists:flatten(Value)|extractvalues(List)].
+    case List of
+	[] -> lists:flatten(Value);
+	_ ->
+	    [lists:flatten(Value)," , "|extractvalues(List)]
+    end.
 
 find_poll([],_) ->
     [];
 find_poll([{poll,[{name,Type},{title,_Title},{totalvotes,TotalVotes}],Result}|_List],
 	  Type) ->
-    {{totalvotes,TotalVotes},Result};
+    {{totalvotes,list_to_integer(TotalVotes)},Result};
 find_poll([T|List],Type) when is_atom(Type) ->
     find_poll([T|List],atom_to_list(Type));
 find_poll([_T|List],Type) ->
     find_poll(List,Type).
 
 categorize({{totalvotes,0},_ResultList}) -> 0;
+categorize({{totalvotes,TotalVotes},ResultList}) when is_list(TotalVotes) ->
+    categorize({{totalvotes,list_to_integer(TotalVotes)},ResultList});
 categorize({{totalvotes,TotalVotes},ResultList}) ->
     [_,R2|_R3]=ResultList,
     {results,[],SubRList}=R2,
-    VoteList=extract(SubRList,list_to_integer(TotalVotes)),
+    VoteList=extract(SubRList,TotalVotes),
     {MaxLevel,_MaxText,_MaxValue}=find_maximum(VoteList,{0,"N/A",0}),
     MaxLevel. 
 
@@ -207,7 +214,7 @@ extract([],_) ->
     [];
 extract([{result,Result,_}|List],TotalVotes) ->
     [extractResult(Result,TotalVotes)|extract(List,TotalVotes)];
-extract([H|List],TotalVotes) ->
+extract([_H|List],TotalVotes) ->
     extract(List,TotalVotes).
 
 extractResult([{level,Level},{value,Value},{numvotes,Num}],TotalVotes)->
@@ -215,10 +222,10 @@ extractResult([{level,Level},{value,Value},{numvotes,Num}],TotalVotes)->
 
 find_maximum([],{MaxLevel,MaxText,MaxValue}) ->
     {MaxLevel,MaxText,MaxValue};
-find_maximum([{Level,Text,Percent}|List],{MaxLevel,MaxText,MaxValue}) 
+find_maximum([{Level,Text,Percent}|List],{_MaxLevel,_MaxText,MaxValue}) 
   when Percent > MaxValue ->
     find_maximum(List,{Level,Text,Percent});  
-find_maximum([H|List],{MaxLevel,MaxText,MaxValue}) ->
+find_maximum([_H|List],{MaxLevel,MaxText,MaxValue}) ->
     find_maximum(List,{MaxLevel,MaxText,MaxValue}).
     
 filter_by_prefix(Type,Link) ->
@@ -246,7 +253,7 @@ create_entries_table() ->
 			      {record_name,entries}]) of
 	{atomic, ok} -> ok;
 	{aborted,{already_exists,entries}} ->
-	    error_logger:info_msg("entries table already_exists");
+	    error_logger:info_msg("entries table already_exists~n");
 	Other ->
 	    error_logger:error_msg("entries table creation failed , reason = ~p~n",[Other])
     end.
@@ -260,7 +267,7 @@ create_games_table() ->
 			      {record_name,game}]) of
 	{atomic, ok} -> ok;
 	{aborted,{already_exists,games}} ->
-	    error_logger:info_msg("games table already_exists");
+	    error_logger:info_msg("games table already_exists~n");
 	Other ->
 	    error_logger:error_msg("games table creation failed , reason = ~p~n",[Other])
     end.
@@ -268,10 +275,10 @@ create_games_table() ->
 write_header(_File,[]) ->
     ok;
 write_header(File,[H|T]) ->
-    file:write_file(File,io_lib:format("~p ",[H]),[append]),
+    file:write_file(File,io_lib:format("~90.90p ",[H]),[append]),
     case T of
         [] ->  file:write_file(File,io_lib:format("~n ",[]),[append]);
-        _ ->  file:write_file(File,io_lib:format(", ",[]),[append]),
+        _ ->  file:write_file(File,io_lib:format("; ",[]),[append]),
               write_header(File, T)
     end.
 
@@ -279,7 +286,19 @@ write_record(File,Record,Size) ->
     write_field(File,Record,2,Size).
 
 write_field(File,Record,Size,Size) ->
-    file:write_file(File,io_lib:format("~p~n",[erlang:element(Size,Record)]),[append]);
+    Value=erlang:element(Size,Record),
+    write_element(File,Value),
+    file:write_file(File,io_lib:format("~n",[]),[append]);
 write_field(File,Record,N,Size) ->
-    file:write_file(File,io_lib:format("~p, ",[erlang:element(N,Record)]),[append]),
+    Value=erlang:element(N,Record),
+    write_element(File,Value),
+    file:write_file(File,io_lib:format("; ",[]),[append]),
     write_field(File,Record,N+1,Size).
+
+write_element(File,Element) ->
+    Value=case string:to_integer(Element) of
+	      {V,[]} -> V;
+	      _ -> lists:flatten(Element)
+    end,
+    file:write_file(File,io_lib:format("~p",[Value]),[append]).
+

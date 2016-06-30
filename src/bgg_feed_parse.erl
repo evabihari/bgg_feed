@@ -55,6 +55,8 @@ request(State=#state{url=Url}) ->
       {error, Reason};
     {http, {ReqId, {error, Reason}}} ->
       {error, Reason};
+    {error, Reason} ->
+      {error, Reason};	  
     Other ->
       io:format("~p~n",[Other])
   after
