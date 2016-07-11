@@ -5,7 +5,9 @@ from boardgamegeek import BoardGameGeek
 bgg = BoardGameGeek()
 
 def convert_rank(DictList):
-    #dict = [{u'friendlyname': 'Board Game Rank', u'name': 'boardgame', u'value': None}]
+    #dict = [{u'friendlyname': 'Board Game Rank',
+    #         u'name': 'boardgame',
+    #         u'value': None}]
     result=""
     for dict in DictList:
         if (dict['value'] != None):
@@ -27,7 +29,7 @@ def expand(Things):
     return result
     
 def update_games_info(row,game):
-        wks_output.update_cell(row,1,game.name)
+#        wks_output.update_cell(row,1,game.name)
         wks_output.update_cell(row,2,game.id)
         wks_output.update_cell(row,3,','.join(game.publishers))
         wks_output.update_cell(row,4,','.join(game.designers))
@@ -44,7 +46,24 @@ def update_games_info(row,game):
         wks_output.update_cell(row,15,','.join(game.alternative_names))
         wks_output.update_cell(row,16,expand(game.expands))
 
-        
+def copy_row(input,output,input_row,output_row):
+        start_cell=input.get_addr_int(input_row,1)
+        end_cell=input.get_addr_int(input_row,input.col_count)
+        range=start_cell+':'+end_cell
+        cell_list = input.range(range)
+        max_col=output.col_count
+        start_new_cell=output.get_addr_int(output_row,1)
+        end_new_cell=output.get_addr_int(output_row,output.col_count)
+        new_range=start_new_cell+':'+end_new_cell       
+        #copy cells to the output_sheet
+        new_cell_list= output.range(new_range)
+        i=0
+        for cell in cell_list:
+            if (i<max_col):
+                new_cell_list[i].value=cell_list[i].value
+            i+=1
+        output.update_cells(new_cell_list)
+
 # main
 
 scope = ['https://spreadsheets.google.com/feeds']
@@ -55,7 +74,7 @@ wks_input = sh.sheet1
 sheetName="data_form_BGG"
 try:
     sh.add_worksheet(title=sheetName,rows="100", cols="20")
-except AttributeError:
+except gspread.exceptions.RequestError:
     print sheetName, " sheet already exist"
 wks_output=sh.worksheet(sheetName)
 print "output worksheet title=",wks_output.title
@@ -66,10 +85,11 @@ col=1
 for field in Fields:
     wks_output.update_cell(1,col,field)
     col+=1
-row=2
+input_row=2
+output_row=2
 end_value='#end'
-while (wks_input.cell(row,1).value!=end_value):
-    cell=wks_input.cell(row,1)
+while (wks_input.cell(input_row,1).value!=end_value):
+    cell=wks_input.cell(input_row,1)
     value=cell.value
     input_value=cell.input_value
     if ((value!=input_value) & (value!='')):
@@ -81,10 +101,12 @@ while (wks_input.cell(row,1).value!=end_value):
         print "Name=", game.name
         print "id=", game.id
         for n in game.alternative_names: print n.encode("utf-8")
-        update_games_info(row,game)
+        wks_output.update_cell(output_row,1,input_value)
+        update_games_info(output_row,game)        
     else:
-        wks_output.update_cell(row,1,input_value)
-    row+=1
+        copy_row(wks_input,wks_output,input_row,output_row)
+    input_row+=1
+    output_row+=1
 print "End"
 
 

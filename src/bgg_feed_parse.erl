@@ -19,6 +19,8 @@
 
 -define(TIMEOUT, 30000).
 
+-include("../include/record.hrl").
+
 -record(state, {
   entries=[],
   feed,
@@ -37,7 +39,13 @@ start_link(Url) ->
 
 %% Begin stream parsing over HTTP.
 resume(FsmRef) ->
-  gen_fsm:sync_send_event(FsmRef, executing,?TIMEOUT).
+  case inet:gethostbyname(?BGG_HOST_NAME) of
+      {ok,_} ->
+	  gen_fsm:sync_send_event(FsmRef, executing,?TIMEOUT);
+      {error,Reason} ->
+	  io:format("~p not available due to ~p~n",[?BGG_URL,inet:format_error(Reason)]),
+	  gen_fsm:sync_send_event(FsmRef, stop,?TIMEOUT)
+  end.
 
 opts(http) -> [
   {autoredirect, true}];
@@ -47,22 +55,31 @@ opts(req) -> [
   {sync, false}].
 
 request(State=#state{url=Url}) ->
-  {ok, ReqId} = httpc:request(get, {Url, []}, opts(http), opts(req)),
-  receive
-    {http, {ReqId, stream_start, _Headers, Pid}} ->
-      stream(State#state{reqId=ReqId, httpcPid=Pid});
-    {http, {error, Reason}} ->
-      {error, Reason};
-    {http, {ReqId, {error, Reason}}} ->
-      {error, Reason};
-    {error, Reason} ->
-      {error, Reason};	  
-    Other ->
-      io:format("~p~n",[Other])
-  after
-    ?TIMEOUT ->
-      {error, timeout}
-  end.
+  case httpc:request(get, {Url, []}, opts(http), opts(req)) of
+      {ok, ReqId} ->
+	  receive
+	      {http, {ReqId, stream_start, _Headers, Pid}} ->
+		  stream(State#state{reqId=ReqId, httpcPid=Pid});
+	      {http, {error, Reason}} ->
+		  {error, Reason};
+	      {http, {ReqId, {error, Reason}}} ->
+		  {error, Reason};
+	      {error, Reason} ->
+		  {error, Reason};	  
+	      Other ->
+		  io:format("~p~n",[Other])
+	  after
+	      ?TIMEOUT ->
+		  {error, timeout}
+	  end;
+      {error, {failed_connect,_}}->
+	   % seems to be problem with netwrok connection give back empty result and terminate normally?
+	  io:format("http request failed due to failed_connect ~n",[]),	  
+	  {stop,normal, {ok,[],[]},State};
+      {error, Reason} ->
+	  io:format("http request failed due to Reason=~p ~n",[Reason]),	  
+	  {stop,normal, {ok,[],[]},State}
+    end.
 
 result({ok, State, _Rest}) ->
   Entries = lists:reverse(State#state.entries),
@@ -74,11 +91,15 @@ result({fatal_error, _, Reason,_ ,_State}) ->
 
 ready(executing, _, State) ->
   R = request(State),
-  result(R).
+    result(R);
+ready(stop,_,State) ->
+    {stop, normal, {ok, [],[]}, State}.
+
 
 terminate(_Reason, _StateName, #state{reqId=ReqId}) ->
   httpc:cancel_request(ReqId);
 terminate(_Reason, _StateName, _StateData) ->
+  io:format("terminate with Reason=~p, StateData=~p~n",[_Reason, _StateData]),
   ok.
 
 event_fun({entry, Entry}, State) ->
@@ -105,11 +126,15 @@ stream(State=#state{reqId=ReqId, httpcPid=Pid}) ->
     {http, {error, Reason}} ->
       {error, Reason};
     {http, {ReqId, stream_end, _Headers}} ->
-      {<<>>, State}
+	  {<<>>, State};
+    {http, {ReqId, {error, Reason}}} ->
+      
+      {error, Reason}
   end.
 
 handle_sync_event(_Event, _From, _StateName, StateData) ->
-  {stop, error, StateData}.
+    io:format("handle_sync_event, StateName=~p, StateData=~p~n",[_StateName, StateData]),
+    {stop, error, StateData}.
 
 handle_event(_Event, _StateName, StateData) ->
   {stop, error, StateData}.

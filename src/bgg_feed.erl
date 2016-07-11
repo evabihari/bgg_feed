@@ -2,18 +2,20 @@
 
 -export([print_links/0]).
 -export([print_titles/0]).
--export([start/0]).
+-export([start/0, start/1]).
 -export([stop/0]).
--export([run/0]).
+-export([run/0, run/1]).
 
 -export([get_new_items/1]).
 -export([export_games_to_file/1]).
 
--export([loop/1, run/1]).
+-export([loop/1]).
 
 -include("../include/record.hrl").
-
 start() ->
+    start(?BGG_RSS_FEED),
+    run(?BGG_RSS_FEED).
+start(_Url) ->
     ok = application:ensure_started(inets),
     ok = application:ensure_started(crypto),
     ok = application:ensure_started(asn1),
@@ -23,8 +25,7 @@ start() ->
     mnesia:start(),
     %% create_feed_table(),
     bgg_feed_utils:create_tables(),
-    application:start(?MODULE),
-    run().
+    application:start(?MODULE).
 
 stop() ->
     application:stop(?MODULE).
@@ -66,13 +67,14 @@ run(Url) ->
     register(run,Pid).
 
 loop(Url) ->
-    io:format("loop() ~n",[]),
+    io:format("loop() at ~p ~n",[calendar:local_time()]),
     receive
 	stop -> io:format("run loop has been stopped",[])
     after
 	?FREQ ->
-	    io:format("Timeout, games table size=~p~n",[mnesia:table_info(games,size)]),
-	    bgg_feed_utils:store(Url),
+	    io:format("Timeout, games table size=~p~n",
+		      [mnesia:table_info(games,size)]),
+	    bgg_feed_utils:store_entries(Url),
 	    get_new_items(boardgame),
 	    loop(Url)
     end.

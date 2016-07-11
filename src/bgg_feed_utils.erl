@@ -6,7 +6,7 @@
 -export([entries/1]).
 -export([links/1]).
 -export([collect_types/1]).
--export([store/1]).
+-export([store_entries/1]).
 -export([handle_item/2]).
 -export([new_items_with_type/2]).
 -export([do_logging_async/2]).
@@ -36,7 +36,7 @@ links(Url) ->
 collect_types(Url) ->
     collect_types(links(Url),[]).
 
-store(Url) ->
+store_entries(Url) ->
     {ok, Feeds, Entries} = all(Url),
     store(Feeds, Entries).
 
@@ -128,8 +128,8 @@ new_game(Id, Url, EntriesRecord) ->
 	    timer:sleep(10000),
 	    handle_item(boardgame,EntriesRecord);
 	{error,Reason} ->
-	    io:format("hhtpc:request returned error with Reason: ~p~n let's
- wait and try again~n",[Reason]),
+	    io:format("hhtpc:request returned error with Reason: ~p~n let's wait and try again~n",
+		      [Reason]),
 	    timer:sleep(10000),
 	    handle_item(boardgame,EntriesRecord);
 	{ok, {{"HTTP/1.1",200,"OK"},_Options,ResponseBody}} ->
@@ -162,7 +162,7 @@ new_game(Id, Url, EntriesRecord) ->
 		    types=extractvalues(Types),
 		    lang_dependence=Lang_dependence
 		   },
-	    mnesia:dirty_write(games,Game),
+	    mnesia:dirty_write(games,Game);
 	{ok, {{_,ErrorCode,ErrorReason},_,_}} ->
 	    io:format("request towards ~p failed with ErrorCode=~p, ErrorReason=~p~n",
 		      [Url,ErrorCode,ErrorReason])

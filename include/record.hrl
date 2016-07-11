@@ -1,4 +1,5 @@
 -define(BGG_URL,"http://boardgamegeek.com").
+-define(BGG_HOST_NAME,"www.boardgamegeek.com").
 -define(BGG_RSS_FEED,"http://boardgamegeek.com/recentadditions/rss?domain=boardgame").
 -define(FREQ, 300000).
 

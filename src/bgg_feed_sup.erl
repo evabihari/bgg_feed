@@ -23,7 +23,7 @@ init([]) ->
 child_spec() -> {
   bgg_feed_worker,
   {bgg_feed_parse, start_link, []},
-  temporary,
+  transient,
   ?TIMEOUT,
   worker,
   [bgg_feed_parse]
