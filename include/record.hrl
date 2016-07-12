@@ -1,6 +1,7 @@
 -define(BGG_URL,"http://boardgamegeek.com").
 -define(BGG_HOST_NAME,"www.boardgamegeek.com").
 -define(BGG_RSS_FEED,"http://boardgamegeek.com/recentadditions/rss?domain=boardgame").
+-define(BGG_GAME_URL,"http://boardgamegeek.com/xmlapi/boardgame/").
 -define(FREQ, 300000).
 
 -record(enclosure, {
@@ -53,5 +54,6 @@
   gamedesigners,
   categories,
   types,
-  lang_dependence
+  lang_dependence,
+  price = "undefined"
   }).

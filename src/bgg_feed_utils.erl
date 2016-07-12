@@ -11,6 +11,8 @@
 -export([new_items_with_type/2]).
 -export([do_logging_async/2]).
 -export([create_tables/0]).
+-export([create_games_table/0]).
+-export([new_game/3]).
 
 
 -include("../include/record.hrl").
@@ -126,12 +128,12 @@ new_game(Id, Url, EntriesRecord) ->
 	    io:format("socket closed remotely, Url=~p let's wait and try again~n",
 		      [Url]),
 	    timer:sleep(10000),
-	    handle_item(boardgame,EntriesRecord);
+	    new_game(Id, Url, EntriesRecord);
 	{error,Reason} ->
-	    io:format("hhtpc:request returned error with Reason: ~p~n let's wait and try again~n",
+	    io:format("httpc:request returned error with Reason: ~p~n let's wait and try again~n",
 		      [Reason]),
 	    timer:sleep(10000),
-	    handle_item(boardgame,EntriesRecord);
+	    new_game(Id, Url, EntriesRecord);
 	{ok, {{"HTTP/1.1",200,"OK"},_Options,ResponseBody}} ->
 	    %% io:format("http request towards ~p got OK ~n",[Url]),
 	    {Xml,_}=xmerl_scan:string(ResponseBody),
@@ -148,7 +150,11 @@ new_game(Id, Url, EntriesRecord) ->
 	    Categories=find_tupples(Properties,boardgamecategory),
 	    Types=find_tupples(Properties,boardgamesubdomain),
 	    Lang_dependence=categorize(find_poll(Properties,language_dependence)),
-	    Game=#game{
+	    OldGame=case mnesia:dirty_read(games,Id) of
+			[] -> #game{id=Id};
+			[GameRec|_] -> GameRec
+		    end,
+	    Game=OldGame#game{
 		    id=Id,
 		    name=extractvalue(Name),
 		    mechanics=extractvalues(Mechanics),
