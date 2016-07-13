@@ -1,5 +1,6 @@
 -module(bgg_feed_utils).
 
+-export([start_apps/0]).
 -export([all/1]).
 -export([titles/1]).
 -export([feed/1]).
@@ -12,10 +13,17 @@
 -export([do_logging_async/2]).
 -export([create_tables/0]).
 -export([create_games_table/0]).
--export([new_game/3]).
+-export([new_game/1]).
 
 
 -include("../include/record.hrl").
+
+start_apps() ->
+    ok = application:ensure_started(inets),
+    ok = application:ensure_started(crypto),
+    ok = application:ensure_started(asn1),
+    ok = application:ensure_started(public_key),
+    ok = application:ensure_started(ssl).
 
 all(Url) ->
     {ok, Pid} = supervisor:start_child(bgg_feed_sup, [Url]),
@@ -122,6 +130,9 @@ handle_item(boardgame,EntriesRecord) ->
 handle_item(_Type,_EntriesRecord) ->
     ok.
 
+new_game(Id) ->
+    Url= string:concat(?BGG_GAME_URL , Id),
+    new_game(Id, Url, []).
 new_game(Id, Url, EntriesRecord) ->
     case httpc:request(Url) of
 	{error, socket_closed_remotely} ->
@@ -168,7 +179,9 @@ new_game(Id, Url, EntriesRecord) ->
 		    types=extractvalues(Types),
 		    lang_dependence=Lang_dependence
 		   },
-	    mnesia:dirty_write(games,Game);
+	    riak_handler:store(Id,Game),
+	    mnesia:dirty_write(games,Game),
+	    Game;
 	{ok, {{_,ErrorCode,ErrorReason},_,_}} ->
 	    io:format("request towards ~p failed with ErrorCode=~p, ErrorReason=~p~n",
 		      [Url,ErrorCode,ErrorReason])
@@ -206,7 +219,7 @@ find_poll([T|List],Type) when is_atom(Type) ->
 find_poll([_T|List],Type) ->
     find_poll(List,Type).
 
-categorize({{totalvotes,0},_ResultList}) -> 0;
+categorize({{totalvotes,0},_ResultList}) -> "0";
 categorize({{totalvotes,TotalVotes},ResultList}) when is_list(TotalVotes) ->
     categorize({{totalvotes,list_to_integer(TotalVotes)},ResultList});
 categorize({{totalvotes,TotalVotes},ResultList}) ->
@@ -214,6 +227,7 @@ categorize({{totalvotes,TotalVotes},ResultList}) ->
     {results,[],SubRList}=R2,
     VoteList=extract(SubRList,TotalVotes),
     {MaxLevel,_MaxText,_MaxValue}=find_maximum(VoteList,{0,"N/A",0}),
+    io:format("MaxLevel=~p~n",[MaxLevel]),
     MaxLevel. 
 
 extract([],_) ->

@@ -10,15 +10,16 @@
 
 -define(ERIC_2015,"https://boardgamegeek.com/xmlapi/geeklist/174654/speil-2015-review").
 %% last year's URL: https://boardgamegeek.com/xmlapi/geeklist/174654/speil-2015-review
+-define(ERIC_2016,"https://boardgamegeek.com/xmlapi/geeklist/198728/gen-con-2016-preview").
 
 read() ->
     read(?ERIC_2015).
+read(2015)->
+    read(?ERIC_2015);
+read(2016) ->
+    read(?ERIC_2016);
 read(Url) ->
-    ok = application:ensure_started(inets),
-    ok = application:ensure_started(crypto),
-    ok = application:ensure_started(asn1),
-    ok = application:ensure_started(public_key),
-    ok = application:ensure_started(ssl),
+    bgg_feed_utils:start_apps(),
     mnesia:create_schema([node()]),
     mnesia:start(),
     create_booth_table(),
@@ -115,8 +116,7 @@ find_and_store_game_price(Properties,[{<<"body">>,_,[Body]}|_]) ->
 	    end,
     OldRecord = case mnesia:dirty_read(games,Id) of
 		    [] -> 
-		       Url= string:concat(?BGG_GAME_URL , Id),
-		       bgg_feed_utils:new_game(Id,Url,[]),
+		       bgg_feed_utils:new_game(Id),
 		       case mnesia:dirty_read(games,Id) of
 			       [G|_] ->	 G;
 			        _ -> #game{id=Id}
