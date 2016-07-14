@@ -11,9 +11,8 @@
 -export([handle_item/2]).
 -export([new_items_with_type/2]).
 -export([do_logging_async/2]).
--export([create_tables/0]).
--export([create_games_table/0]).
--export([new_game/1]).
+-export([create_tables/0,create_games_table/0]).
+-export([new_game/1, update_game/1]).
 
 
 -include("../include/record.hrl").
@@ -141,10 +140,8 @@ new_game(Id, Url, EntriesRecord) ->
 	    timer:sleep(10000),
 	    new_game(Id, Url, EntriesRecord);
 	{error,Reason} ->
-	    io:format("httpc:request returned error with Reason: ~p~n let's wait and try again~n",
-		      [Reason]),
-	    timer:sleep(10000),
-	    new_game(Id, Url, EntriesRecord);
+	    io:format("httpc:request returned error with Reason: ~p~n ",
+		      [Reason]);
 	{ok, {{"HTTP/1.1",200,"OK"},_Options,ResponseBody}} ->
 	    %% io:format("http request towards ~p got OK ~n",[Url]),
 	    {Xml,_}=xmerl_scan:string(ResponseBody),
@@ -166,26 +163,33 @@ new_game(Id, Url, EntriesRecord) ->
 			[GameRec|_] -> GameRec
 		    end,
 	    Game=OldGame#game{
-		    id=Id,
-		    name=extractvalue(Name),
-		    mechanics=extractvalues(Mechanics),
-		    family=extractvalues(Family),
-		    yearpublished=extractvalue(YearPublished),
-		    minplayers=extractvalue(MinPlayers),
-		    maxplayers=extractvalue(MaxPlayers),
-		    publishers=extractvalues(Publishers),
-		    gamedesigners=extractvalues(GameDesigners),
-		    categories=extractvalues(Categories),
-		    types=extractvalues(Types),
-		    lang_dependence=Lang_dependence
-		   },
+		   id=Id,
+		   name=extractvalue(Name),
+		   mechanics=extractvalues(Mechanics),
+		   family=extractvalues(Family),
+		   yearpublished=extractvalue(YearPublished),
+		   minplayers=extractvalue(MinPlayers),
+		   maxplayers=extractvalue(MaxPlayers),
+		   publishers=extractvalues(Publishers),
+		   gamedesigners=extractvalues(GameDesigners),
+		   categories=extractvalues(Categories),
+		   types=extractvalues(Types),
+		   lang_dependence=Lang_dependence
+		  },
 	    riak_handler:store(Id,Game),
 	    mnesia:dirty_write(games,Game),
 	    Game;
 	{ok, {{_,ErrorCode,ErrorReason},_,_}} ->
-	    io:format("request towards ~p failed with ErrorCode=~p, ErrorReason=~p~n",
-		      [Url,ErrorCode,ErrorReason])
+	    io:format("request towards ~p failed with ErrorCode=~p, ErrorReason=~p let's wait and try again~n",
+		      [Url,ErrorCode,ErrorReason]),
+	    timer:sleep(10000),
+	    new_game(Id, Url, EntriesRecord)
     end.
+
+update_game(Game) ->
+    Id=Game#game.id,
+    riak_handler:store(Id,Game),
+    mnesia:dirty_write(games,Game).
 
 find_tupples([],_)->
     [];
@@ -227,7 +231,6 @@ categorize({{totalvotes,TotalVotes},ResultList}) ->
     {results,[],SubRList}=R2,
     VoteList=extract(SubRList,TotalVotes),
     {MaxLevel,_MaxText,_MaxValue}=find_maximum(VoteList,{0,"N/A",0}),
-    io:format("MaxLevel=~p~n",[MaxLevel]),
     MaxLevel. 
 
 extract([],_) ->
@@ -247,7 +250,7 @@ find_maximum([{Level,Text,Percent}|List],{_MaxLevel,_MaxText,MaxValue})
     find_maximum(List,{Level,Text,Percent});  
 find_maximum([_H|List],{MaxLevel,MaxText,MaxValue}) ->
     find_maximum(List,{MaxLevel,MaxText,MaxValue}).
-    
+
 filter_by_prefix(Type,Link) ->
     Prefix=prefix(Type),
     case string:str(binary_to_list(Link), Prefix) of
@@ -319,6 +322,6 @@ write_element(File,Element) ->
     Value=case string:to_integer(Element) of
 	      {V,[]} -> V;
 	      _ -> lists:flatten(Element)
-    end,
+	  end,
     file:write_file(File,io_lib:format("~p",[Value]),[append]).
 

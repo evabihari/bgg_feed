@@ -141,7 +141,7 @@ Traceback (most recent call last):
 TypeError: No decoder for content type "application/octet-stream"
 
 `
-Note: Erlang client makes a decision regarding teh content type if it is not specified by us.
+Note: Erlang client makes a decision regarding the content type if it is not specified by us.
 Text -> 'application/octet-stream'
 
 Complex type -> 'application/x-erlang-binary'

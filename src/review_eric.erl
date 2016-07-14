@@ -2,12 +2,6 @@
 -export([read/1, read/0]).
 -include("../include/record.hrl").
 
--record(booth, {
-  publisher :: undefined | list(),
-  id :: undefined | list(),
-  booth :: undefined | list()
-}).
-
 -define(ERIC_2015,"https://boardgamegeek.com/xmlapi/geeklist/174654/speil-2015-review").
 %% last year's URL: https://boardgamegeek.com/xmlapi/geeklist/174654/speil-2015-review
 -define(ERIC_2016,"https://boardgamegeek.com/xmlapi/geeklist/198728/gen-con-2016-preview").
@@ -28,16 +22,16 @@ read(Url) ->
 	{ok, {{"HTTP/1.1",200,"OK"},
 	      _Head,
 	      Body}} ->
-		{ok,F} = file:open("eric2015.txt",[read,write]),
-		file:write(F,Body),
-		Struct=mochiweb_html:parse(Body),
-		{ok,F2} = file:open("structs.txt",[read,write]),
-		file:write(F2,io_lib:print(Struct)),
-	        Path="geeklist/item",
-	        ItemList=mochiweb_xpath:execute(Path,Struct),
-	        {ok,F3} = file:open("itemss.txt",[read,write]),
-		file:write(F3,io_lib:print(ItemList)),
-	        store_items(ItemList);
+	    {ok,F} = file:open("eric2015.txt",[read,write]),
+	    file:write(F,Body),
+	    Struct=mochiweb_html:parse(Body),
+	    {ok,F2} = file:open("structs.txt",[read,write]),
+	    file:write(F2,io_lib:print(Struct)),
+	    Path="geeklist/item",
+	    ItemList=mochiweb_xpath:execute(Path,Struct),
+	    {ok,F3} = file:open("itemss.txt",[read,write]),
+	    file:write(F3,io_lib:print(ItemList)),
+	    store_items(ItemList);
 	Result -> io:format("Http request failed, Result=~p~n",[Result])
     end.
 
@@ -53,7 +47,7 @@ store_items([{<<"item">>,Properties,Body}|ItemList]) ->
     end,
     store_items(ItemList).
 
-		
+
 create_booth_table()->
     case mnesia:create_table(booths, 
                              [{disc_copies,[node()]},
@@ -90,25 +84,33 @@ find_and_store_booth(Properties,[{<<"body">>,_,[Body]}|_]) ->
 		       "Not provided";
 		   StartingPos -> 
 		       St=StartingPos+4,
-		       %_End=St+length(" X-1234 and Y-45678"),
+						%_End=St+length(" X-1234 and Y-45678"),
 		       SubStr=string:sub_string(Text,St), 
 		       [Booth|_]=string:tokens(SubStr,","),
 		       Booth
 	       end,
-    mnesia:dirty_write(booths,#booth{publisher = Publisher,
-				     id = Id,
-				     booth = Location}).
+    PubRecord=#booth{publisher = Publisher,
+		     id = Id,
+		     booth = Location},
+    mnesia:dirty_write(booths,PubRecord),
+    riak_handler:store(Publisher,PubRecord).
+
 find_and_store_game_price(_Properties,[{<<"body">>,[],[]}]) ->
     %% there were no body in the geeklist item 
     ok;
 find_and_store_game_price(Properties,[{<<"body">>,_,[Body]}|_]) ->
     [Id,Name] =  checkType(Properties,[<<"objectid">>,<<"objectname">>]),
     Text=binary_to_list(Body),
-    Pattern=[226,128,162]++" Price",
-    Price = case string:rstr(Text,Pattern) of
-		   0 ->
+    Pattern1=[226,128,162]++" Price",
+    Pattern2=[226,128,162]++" MSRP",
+
+    St1=string:rstr(Text,Pattern1),
+    St2=string:rstr(Text,Pattern2),
+    StartPos = max(St1,St2),	
+    Price = case StartPos of
+		0 ->
 		    "Unknown";
-		   StartingPos ->    
+		StartingPos ->    
 		    St=StartingPos+4,
 		    SubStr=string:sub_string(Text,St), 
 		    [PriceText|_]=string:tokens(SubStr,[10,13]),
@@ -116,14 +118,15 @@ find_and_store_game_price(Properties,[{<<"body">>,_,[Body]}|_]) ->
 	    end,
     OldRecord = case mnesia:dirty_read(games,Id) of
 		    [] -> 
-		       bgg_feed_utils:new_game(Id),
-		       case mnesia:dirty_read(games,Id) of
-			       [G|_] ->	 G;
-			        _ -> #game{id=Id}
-		       end;	      
-		    [GameRec|_] -> GameRec
-    end,
-    mnesia:dirty_write(games,OldRecord#game{name = Name,
-					     price = Price}).
-    
-	    
+			bgg_feed_utils:new_game(Id),
+			case mnesia:dirty_read(games,Id) of
+			    [G|_] ->	 G;
+			    _ -> #game{id=Id,
+				       name=Name}
+			end;	      
+		    [GameRec|_] -> 
+			GameRec
+		end,
+    bgg_feed_utils:update_game(OldRecord#game{price = Price}).
+
+

@@ -4,7 +4,8 @@ from oauth2client.service_account import ServiceAccountCredentials
 from boardgamegeek import BoardGameGeek
 import riak
 myClient=riak.RiakClient(pb_port=8087)  # protocol can be 'pbc'/'http'
-myBucket = myClient.bucket('bgg')
+bggBucket = myClient.bucket('bgg')
+boothBucket = myClient.bucket('booth')
 bgg = BoardGameGeek()
 
 def convert_rank(DictList):
@@ -31,12 +32,24 @@ def expand(Things):
                 result=result+","+s
     return result
 
-def find_price(Dd):
-    Data=myBucket.get(Id).data
+def find_price(Id):
+    print "Id=",str(Id)
+    Data=bggBucket.get(str(Id)).data
     if (Data != None):
         return Data['price']
     else:
+        
         return "not known yet"
+
+def find_booth(Publishers):
+    for P in Publishers:
+        print P
+        if (boothBucket.get(P).data != None):
+            Data = boothBucket.get(P).data
+            print Data
+            return Data['booth']
+        else:
+            return "not known yet"
     
 def update_games_info(row,game):
 #        wks_output.update_cell(row,1,game.name)
@@ -56,6 +69,8 @@ def update_games_info(row,game):
         wks_output.update_cell(row,15,','.join(game.alternative_names))
         wks_output.update_cell(row,16,expand(game.expands))
         wks_output.update_cell(row,17,find_price(game.id))
+        wks_output.update_cell(row,18,find_booth(game.publishers))
+        
 
 def copy_row(input,output,input_row,output_row):
         start_cell=input.get_addr_int(input_row,1)
@@ -91,7 +106,7 @@ wks_output=sh.worksheet(sheetName)
 print "output worksheet title=",wks_output.title
 Fields=["Name","Id","Publisher","Designers","Year","Artists", "Ranks", "Min_players",
         "Max_players","Min_age","Mechanics","Plying_time","Families",
-        "Rating_average","Alternative_names","Expands","Price"]
+        "Rating_average","Alternative_names","Expands","Price","Booth"]
 col=1
 for field in Fields:
     wks_output.update_cell(1,col,field)
