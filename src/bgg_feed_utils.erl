@@ -13,6 +13,7 @@
 -export([do_logging_async/2]).
 -export([create_tables/0,create_games_table/0]).
 -export([new_game/1, update_game/1]).
+-export([add_price/2]).
 
 
 -include("../include/record.hrl").
@@ -325,3 +326,44 @@ write_element(File,Element) ->
 	  end,
     file:write_file(File,io_lib:format("~p",[Value]),[append]).
 
+add_price(Game_id,PriceStr) when is_integer(Game_id)->
+    add_price(integer_to_list(Game_id),PriceStr);
+add_price(Game_id,PriceStr) ->
+    case read_game(Game_id) of
+	[] ->
+	    io:format("Game not found Game_id=~p~n",[Game_id]);
+	[Game|_] ->
+	    NewPrice = case get_price_string(Game#game.price) of
+			   "" ->
+			       PriceStr;
+			   Other ->
+			       Other ++ " , "++PriceStr
+		 end,
+             update_game(Game#game{price=NewPrice})
+     end.
+
+get_price_string([]) ->
+    "";
+get_price_string("Unknown") ->
+    "";
+get_price_string("not known yet") ->
+    "";
+get_price_string("undefined") ->
+    "";
+get_price_string(Other) ->
+    Other.
+
+read_game(Game_id) when is_integer(Game_id) ->
+    read_game(integer_to_list(Game_id));
+read_game(Game_id) ->
+    case mnesia:dirty_read(games,Game_id) of 
+	    [] -> case riak_handler:read(game,Game_id) of
+		      [] -> [];
+		      {ok,GameR} -> [GameR]
+		  end;
+	    [Game|_] -> Game
+    end.
+    
+
+
+		    

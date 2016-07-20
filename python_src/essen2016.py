@@ -8,6 +8,39 @@ bggBucket = myClient.bucket('bgg')
 boothBucket = myClient.bucket('booth')
 bgg = BoardGameGeek()
 
+def update_game_in_riak(game):
+    Id=str(game.id)
+    Obj=bggBucket.get(Id)
+    if (Obj.data==None):
+        newGame=bggBucket.new(Id, data={
+        'id': Id,
+        'name': game.name,
+        'family': ','.join(game.families),
+        'mechanics': ','.join(game.mechanics),
+        'yearpublished':str(game.year),
+        'minplayers':str(game.min_players),
+        'maxplayers':str(game.max_players),
+        'publishers':','.join(game.publishers),
+        'gamedesigners':','.join(game.designers),
+        'categories':','.join(game.categories),
+        'types':'',
+        'lang_dependence':'0',
+        'price':  'undefined'
+        })
+        newGame.store()
+    else:
+        Obj.data['id']=Id,
+        Obj.data['name']= game.name,
+        Obj.data['family']= ','.join(game.families),
+        Obj.data['mechanics']= ','.join(game.mechanics),
+        Obj.data['yearpublished']=str(game.year),
+        Obj.data['minplayers']=str(game.min_players),
+        Obj.data['maxplayers']=str(game.max_players),
+        Obj.data['publishers']=','.join(game.publishers),
+        Obj.data['gamedesigners']=','.join(game.designers),
+        Obj.data['categories']=','.join(game.categories),        
+        Obj.store()
+    
 def convert_rank(DictList):
     #dict = [{u'friendlyname': 'Board Game Rank',
     #         u'name': 'boardgame',
@@ -38,18 +71,22 @@ def find_price(Id):
     if (Data != None):
         return Data['price']
     else:
-        
         return "not known yet"
 
 def find_booth(Publishers):
     for P in Publishers:
         print P
-        if (boothBucket.get(P).data != None):
-            Data = boothBucket.get(P).data
-            print Data
-            return Data['booth']
-        else:
-            return "not known yet"
+        try:
+            if (boothBucket.get(P).data != None):
+                Data = boothBucket.get(P).data
+                print Data
+                return Data['booth']
+ 
+            else:
+                return "not known yet"
+        except TypeError:
+            print TypeError
+            return "publisher name in unicode"
     
 def update_games_info(row,game):
 #        wks_output.update_cell(row,1,game.name)
@@ -70,6 +107,7 @@ def update_games_info(row,game):
         wks_output.update_cell(row,16,expand(game.expands))
         wks_output.update_cell(row,17,find_price(game.id))
         wks_output.update_cell(row,18,find_booth(game.publishers))
+        update_game_in_riak(game)
         
 
 def copy_row(input,output,input_row,output_row):
@@ -99,7 +137,7 @@ sh = gc.open("Essen 2016")
 wks_input = sh.sheet1
 sheetName="data_form_BGG"
 try:
-    sh.add_worksheet(title=sheetName,rows="100", cols="20")
+    sh.add_worksheet(title=sheetName,rows="100", cols="25")
 except gspread.exceptions.RequestError:
     print sheetName, " sheet already exist"
 wks_output=sh.worksheet(sheetName)

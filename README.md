@@ -31,11 +31,24 @@ TODO:
    
 		listener.protobuf.internal = 127.0.0.1:8087
    
-3. modify the python script to use data stored in the database when we are dealing with fields not available on BGG (Booth number, Price)
-4. From Eric's 2016's GenCON list -> Price sometimes added as MSRP tag (simliar to teh Price) in the Body section -> update the code!
-5. http://www.merz-verlag-en.com/new-releases.html page contains a link to a pdf file (http://www.merz-verlag-en.com/uploads/2/1/4/0/21405396/neuheiten_8.7.pdf) where new releases are listed.
+3. modify the python script to use data stored in the database when we
+   are dealing with fields not available on BGG (Booth number, Price)
+   - DONE
+4. From Eric's 2016's GenCON list -> Price sometimes added as MSRP tag
+   (simliar to the Price) in the Body section -> update the code!
+   -DONE - check formatting and unicode characters
+5. Create an API to the Riak and Mnesia database to be able to include
+   price information from local shops, etc...
+   -partly done:
+   `bgg_feed_utils:add_price(Game_id,PriceStr).`
+6. http://www.merz-verlag-en.com/new-releases.html page contains a
+link to a pdf file (http://www.merz-verlag-en.com/uploads/2/1/4/0/21405396/neuheiten_8.7.pdf) where new releases are listed.
 Write a parser which will pull information from this sheet might be interesting for us.
-6. try to find a solution making sure google sheet will be user friendly (format, etc)
+7. Unicode not supported for Riak keys -> find out a method to convert
+   Publisher names to a string which does not contain unicode
+   char's. (need to be done on the parsing side (Erlang) and the
+   google docs handling (Python) side as well
+8. try to find a solution making sure google sheet will be user friendly (format, etc)
 
 
 
