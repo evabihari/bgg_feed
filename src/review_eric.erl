@@ -5,9 +5,9 @@
 -define(ERIC_2015,"https://boardgamegeek.com/xmlapi/geeklist/174654/speil-2015-review").
 %% last year's URL: https://boardgamegeek.com/xmlapi/geeklist/174654/speil-2015-review
 -define(ERIC_2016,"https://boardgamegeek.com/xmlapi/geeklist/198728/gen-con-2016-preview").
-
+-define(ESSEN_2016,"https://boardgamegeek.com/xmlapi/geeklist/193588/spiel-2016-preview").
 read() ->
-    read(?ERIC_2015).
+    read(?ESSEN_2016).
 read(2015)->
     read(?ERIC_2015);
 read(2016) ->
@@ -22,7 +22,7 @@ read(Url) ->
 	{ok, {{"HTTP/1.1",200,"OK"},
 	      _Head,
 	      Body}} ->
-	    {ok,F} = file:open("eric2015.txt",[read,write]),
+	    {ok,F} = file:open("eric2016.txt",[read,write]),
 	    file:write(F,Body),
 	    Struct=mochiweb_html:parse(Body),
 	    {ok,F2} = file:open("structs.txt",[read,write]),
@@ -32,6 +32,12 @@ read(Url) ->
 	    {ok,F3} = file:open("itemss.txt",[read,write]),
 	    file:write(F3,io_lib:print(ItemList)),
 	    store_items(ItemList);
+	{ok, {{"HTTP/1.1",202,"Accepted"},
+	      _Head,
+	      _Body}} ->
+	    io:format("request accepted, wait a bit,",[]),
+	    timer:sleep(10000),
+	    read(Url);
 	Result -> io:format("Http request failed, Result=~p~n",[Result])
     end.
 
@@ -43,7 +49,8 @@ store_items([{<<"item">>,Properties,Body}|ItemList]) ->
 	    find_and_store_booth(Properties,Body);
 	["thing","boardgame"] ->
 	    find_and_store_game_price(Properties,Body);
-	_ -> will_be_find_later
+	_ -> io:format("will_be_find_later, Properties = ~p~n",[Properties]), 
+	    will_be_find_later
     end,
     store_items(ItemList).
 
@@ -95,9 +102,9 @@ find_and_store_booth(Properties,[{<<"body">>,_,[Body]}|_]) ->
     mnesia:dirty_write(booths,PubRecord),
     riak_handler:store(Publisher,PubRecord).
 
-find_and_store_game_price(_Properties,[{<<"body">>,[],[]}]) ->
-    %% there were no body in the geeklist item 
-    ok;
+find_and_store_game_price(Properties,[{<<"body">>,[],[]}]) ->
+    %% there were no body in the geeklist item, let's set the body to a binary containing and empty string
+    find_and_store_game_price(Properties,[{<<"body">>,[],[<<"">>]}]);
 find_and_store_game_price(Properties,[{<<"body">>,_,[Body]}|_]) ->
     [Id,Name] =  checkType(Properties,[<<"objectid">>,<<"objectname">>]),
     Text=binary_to_list(Body),
@@ -106,23 +113,26 @@ find_and_store_game_price(Properties,[{<<"body">>,_,[Body]}|_]) ->
 
     St1=string:rstr(Text,Pattern1),
     St2=string:rstr(Text,Pattern2),
-    StartPos = max(St1,St2),	
+    StartPos = max(St1,St2),
+    Offset = case StartPos of
+		 St1 -> 5;
+		 _ -> 0
+	     end,
     Price = case StartPos of
 		0 ->
 		    "Unknown";
 		StartingPos ->    
 		    St=StartingPos+4,
-		    SubStr=string:sub_string(Text,St), 
+		    SubStr=string:sub_string(Text,St+Offset), 
 		    [PriceText|_]=string:tokens(SubStr,[10,13]),
-		    PriceText
+		    replace_eur(PriceText)
 	    end,
     OldRecord = case mnesia:dirty_read(games,Id) of
 		    [] -> 
 			bgg_feed_utils:new_game(Id),
 			case mnesia:dirty_read(games,Id) of
 			    [G|_] ->	 G;
-			    _ -> #game{id=Id,
-				       name=Name}
+			    _ -> #game{id=Id}
 			end;	      
 		    [GameRec|_] -> 
 			GameRec
@@ -130,3 +140,11 @@ find_and_store_game_price(Properties,[{<<"body">>,_,[Body]}|_]) ->
     bgg_feed_utils:update_game(OldRecord#game{price = Price}).
 
 
+replace_eur(Text) ->
+    Pattern=[226,130,172],
+    case string:rstr(Text,Pattern) of
+	N when N>0 ->
+	    re:replace(Text, Pattern, "EUR ", [global, {return, list}]);
+	_ ->
+	    Text
+	end.

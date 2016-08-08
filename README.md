@@ -42,7 +42,12 @@ TODO:
    -partly done:
    `bgg_feed_utils:add_price(Game_id,PriceStr).`
 6. http://www.merz-verlag-en.com/new-releases.html page contains a
-link to a pdf file (http://www.merz-verlag-en.com/uploads/2/1/4/0/21405396/neuheiten_8.7.pdf) where new releases are listed.
+link to a pdf file
+(http://www.merz-verlag-en.com/uploads/2/1/4/0/21405396/neuheiten_8.7.pdf)
+where new releases are listed.
+
+Try to use: `pdftotext input_pdf output_file -table`
+
 Write a parser which will pull information from this sheet might be interesting for us.
 7. Unicode not supported for Riak keys -> find out a method to convert
    Publisher names to a string which does not contain unicode
