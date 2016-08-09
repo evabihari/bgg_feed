@@ -35,8 +35,9 @@ TODO:
    are dealing with fields not available on BGG (Booth number, Price)
    - DONE
 4. From Eric's 2016's GenCON list -> Price sometimes added as MSRP tag
-   (simliar to the Price) in the Body section -> update the code!
-   -DONE - check formatting and unicode characters
+   (simliar to the Price) in the Body section
+   -DONE - check formatting and unicode characters - EUR is now
+   handled correctly
 5. Create an API to the Riak and Mnesia database to be able to include
    price information from local shops, etc...
    -partly done:

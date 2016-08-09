@@ -15,7 +15,8 @@
        {string,"categories"},
        {string,"types"},
        {string,"lang_dependence"},
-       {string,"price"}}).
+       {string,"price"},
+       {string,"updated"}}).
 
 -export([start/0,
 	 encode/1,

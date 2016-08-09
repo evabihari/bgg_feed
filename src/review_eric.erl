@@ -48,12 +48,26 @@ store_items([{<<"item">>,Properties,Body}|ItemList]) ->
 	["company","boardgamepublisher"] -> 
 	    find_and_store_booth(Properties,Body);
 	["thing","boardgame"] ->
-	    find_and_store_game_price(Properties,Body);
+	    % check whether game already stored and this is a fresh update or not:
+	    [Id,_Name,Update] =  checkType(Properties,[<<"objectid">>,<<"objectname">>,<<"editdate">>]),
+	     Last_updated = case mnesia:dirty_read(games,Id) of
+		    [] -> 
+			"0";	      
+		    [GameRec|_] -> 
+			GameRec#game.updated	 
+		end, 
+	    Item_update=bgg_feed_utils:convert_to_timestamp(Update),
+	    Game_update=list_to_integer(Last_updated),
+	    if ( Item_update > Game_update) -> 
+		    io:format("Games table update is needed for ~p~n",[_Name]),
+		    find_and_store_game_price(Properties,Body);
+	       true -> ok
+	    end;
+			
 	_ -> io:format("will_be_find_later, Properties = ~p~n",[Properties]), 
 	    will_be_find_later
     end,
     store_items(ItemList).
-
 
 create_booth_table()->
     case mnesia:create_table(booths, 
@@ -94,7 +108,7 @@ find_and_store_booth(Properties,[{<<"body">>,_,[Body]}|_]) ->
 						%_End=St+length(" X-1234 and Y-45678"),
 		       SubStr=string:sub_string(Text,St), 
 		       [Booth|_]=string:tokens(SubStr,","),
-		       Booth
+		       bgg_feed_utils:replace_strange_characters(Booth)
 	       end,
     PubRecord=#booth{publisher = Publisher,
 		     id = Id,
@@ -106,7 +120,7 @@ find_and_store_game_price(Properties,[{<<"body">>,[],[]}]) ->
     %% there were no body in the geeklist item, let's set the body to a binary containing and empty string
     find_and_store_game_price(Properties,[{<<"body">>,[],[<<"">>]}]);
 find_and_store_game_price(Properties,[{<<"body">>,_,[Body]}|_]) ->
-    [Id,Name] =  checkType(Properties,[<<"objectid">>,<<"objectname">>]),
+    [Id,_Name] =  checkType(Properties,[<<"objectid">>,<<"objectname">>]),
     Text=binary_to_list(Body),
     Pattern1=[226,128,162]++" Price",
     Pattern2=[226,128,162]++" MSRP",

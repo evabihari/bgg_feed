@@ -50,12 +50,13 @@
 	  yearpublished,
 	  minplayers="",
 	  maxplayers="",
-	  publishers=[],
-	  gamedesigners=[],
-	  categories=[],
-	  types=[],
+	  publishers="",
+	  gamedesigners="",
+	  categories="",
+	  types="",
 	  lang_dependence = "0",
-	  price = "undefined"
+	  price = "undefined",
+	  updated = "0" %timestamp of the date last update has been done
 	}).
 
 -record(booth, 

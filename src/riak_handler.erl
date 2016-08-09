@@ -2,7 +2,9 @@
 -include("../include/record.hrl").
 
 -export([store/2,
-	read/2]).
+	read/2,
+	delete/2,
+	list_keys/1]).
 
 store(Id,Data)->
     case riakc_pb_socket:start("127.0.0.1", 8087) of
@@ -16,6 +18,28 @@ store(Id,Data)->
 	    io:format("riak is not running, can't store data~n",[])
     end.
 
+delete(Type,Id) when is_list(Id) ->
+   delete(Type,list_to_binary(Id));
+
+delete(Type,Key) ->
+   case riakc_pb_socket:start("127.0.0.1", 8087) of
+	{ok, Pid} -> 
+	    Bucket = assign_bucket_to_type(Type), 
+	   riakc_pb_socket:delete(Pid, Bucket, Key);
+	_ ->
+	    io:format("riak is not running, can't delete data~n",[])
+    end.
+		   
+list_keys(Type) ->   
+     case riakc_pb_socket:start("127.0.0.1", 8087) of
+	{ok, Pid} -> 
+	    Bucket = assign_bucket_to_type(Type), 
+	     {ok,KeyList}=riakc_pb_socket:list_keys(Pid,Bucket),
+	     KeyList;
+	_ ->
+	    io:format("riak is not running, can't list keys~n",[])
+    end.
+    
 read(Type,Id) when is_integer(Id) ->
     read(Type,integer_to_list(Id));
 read(Type,Id) ->
@@ -26,7 +50,12 @@ read(Type,Id) ->
 		{ok, Fetched} ->
 		    Json=riakc_obj:get_value(Fetched),
 		    riakc_pb_socket:stop(Pid),
-		    decode_from_json(game,Json);
+		    case Type of
+			game->
+			    decode_from_json(game,Json);
+			booth ->
+			    decode_from_json(booth,Json)
+                    end;
 		{error,notfound} ->
 		    []
 	    end;

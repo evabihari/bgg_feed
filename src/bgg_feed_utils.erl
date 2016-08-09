@@ -14,6 +14,9 @@
 -export([create_tables/0,create_games_table/0]).
 -export([new_game/1, update_game/1]).
 -export([add_price/2]).
+-export([replace_strange_characters/1]).
+-export([reset_booths_table/0,convert_to_timestamp/1]).
+-export([reset_games_table/0]).
 
 
 -include("../include/record.hrl").
@@ -175,7 +178,8 @@ new_game(Id, Url, EntriesRecord) ->
 		   gamedesigners=extractvalues(GameDesigners),
 		   categories=extractvalues(Categories),
 		   types=extractvalues(Types),
-		   lang_dependence=Lang_dependence
+		   lang_dependence=Lang_dependence,
+		   updated=get_date()
 		  },
 	    riak_handler:store(Id,Game),
 	    mnesia:dirty_write(games,Game),
@@ -186,6 +190,47 @@ new_game(Id, Url, EntriesRecord) ->
 	    timer:sleep(10000),
 	    new_game(Id, Url, EntriesRecord)
     end.
+
+get_date() ->
+    integer_to_list(timestamp(erlang:timestamp())).
+
+timestamp({Mega, Secs, Micro}) ->
+    Mega*1000*1000*1000*1000 + Secs * 1000 * 1000 + Micro.
+
+convert_to_timestamp(DateString) ->
+    % DateString="Mon, 26 Oct 2015 16:14:32 +0000"
+    [_,Day,Month,Year,H,Min,Sec,_]=string:tokens(DateString,", :+"),
+    to_timestamp({{list_to_integer(Year),to_month(Month),list_to_integer(Day)},
+		  {list_to_integer(H),list_to_integer(Min),list_to_integer(Sec)}}).
+    
+to_timestamp({{Year,Month,Day},{Hours,Minutes,Seconds}}) ->
+    (calendar:datetime_to_gregorian_seconds({{Year,Month,Day},{Hours,Minutes,Seconds}})
+	- 62167219200)*1000000.
+
+to_month("Jan")->
+    1;
+to_month("Feb") ->
+    2;
+to_month("Mar") ->
+    3;
+to_month("Apr") ->
+    4;
+to_month("May") ->
+    5;
+to_month("Jun") ->
+    6;
+to_month("Jul") ->
+    7;
+to_month("Aug") ->
+    8;
+to_month("Sep") ->
+    9;
+to_month("Oct") ->
+    10;
+to_month("Nov") ->
+    11;
+to_month("Dec") ->
+    12.
 
 update_game(Game) ->
     Id=Game#game.id,
@@ -363,7 +408,42 @@ read_game(Game_id) ->
 		  end;
 	    [Game|_] -> Game
     end.
-    
+   
+replace_strange_characters(Text) ->
+   Bullet={[226,130,172]," -.- "},
+   EM_Dash={[226,128,148], " - "}, 
+   Latin_small={[195,175], "A"},
+   Euro={[226,130,172],"EUR "},
+  replacement(Text,[Bullet,EM_Dash,Latin_small,Euro]).
 
+replacement(Text,[]) ->
+    Text;
+replacement(Text,[{In,Out}|Patterns]) ->
+    T1=case string:rstr(Text,In) of
+	N when N>0 ->
+	    re:replace(Text, In, Out, [global, {return, list}]);
+	_ ->
+	    Text
+       end,
+    replacement(T1,Patterns).
 
 		    
+reset_booths_table()->
+    reset_table(booth,mnesia:dirty_all_keys(booths)).
+
+reset_table(_Type,[])->
+    ok;
+reset_table(Type,[Key|Keys]) ->
+    riak_handler:delete(Type,Key),
+    mnesia:dirty_delete(get_table_name(Type),Key),
+    reset_table(Type,Keys).
+
+get_table_name(booth) ->
+    booths;
+get_table_name(game) ->
+    games.
+
+reset_games_table()->
+    BinKeys=riak_handler:list_keys(game),
+    Keys=lists:map(fun(X) -> binary_to_list(X) end, BinKeys),
+    reset_table(game,Keys).
