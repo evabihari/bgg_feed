@@ -21,6 +21,7 @@ start(_Url) ->
     ok = application:ensure_started(asn1),
     ok = application:ensure_started(public_key),
     ok = application:ensure_started(ssl),
+    hackney:start(),
     mnesia:create_schema([node()]),
     mnesia:start(),
     %% create_feed_table(),
@@ -30,17 +31,11 @@ start(_Url) ->
 stop() ->
     application:stop(?MODULE).
 
-print(L) ->
-    lists:foreach(fun (Title) ->
-			  io:format("~ts~n", [Title])
-		  end, L),
-    ok.
-
 print_titles() ->
-    print_titles(?BGG_URL).
+    spawn(bgg_feed_utils,print_titles,[?BGG_URL]).
 
 print_links() ->
-    print_links(?BGG_URL).
+    bgg_feed_utils:print_links(?BGG_URL).
 
 get_new_items(Type) ->
     MatchHead=#entries{link='$1', title='$2',type=Type,_='_'},
@@ -79,8 +74,3 @@ loop(Url) ->
 	    loop(Url)
     end.
 
-print_titles(Url) ->
-    print(bgg_feed_utils:titles(Url)).
-
-print_links(Url) ->
-    print(bgg_feed_utils:links(Url)).

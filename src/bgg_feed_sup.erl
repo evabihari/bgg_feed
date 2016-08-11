@@ -22,11 +22,14 @@ init([]) ->
 %% Helper macro for declaring children of supervisor
 child_spec() -> {
   bgg_feed_worker,
-  {bgg_feed_parse, start_link, []},
+ % {bgg_feed_parse, start_link, []},
+  {bgg_feed_parse_hackney, start_link, []},
   transient,
   ?TIMEOUT,
   worker,
-  [bgg_feed_parse]
+  %[bgg_feed_parse]
+  [bgg_feed_parse_hackney]
+
 }.
 
 %% ===================================================================

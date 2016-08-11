@@ -18,10 +18,9 @@ read(Url) ->
     mnesia:start(),
     create_booth_table(),
     bgg_feed_utils:create_games_table(),
-    case httpc:request(Url) of 
-	{ok, {{"HTTP/1.1",200,"OK"},
-	      _Head,
-	      Body}} ->
+    case hackney:request(Url) of
+	{ok,200,_Head,Ref} ->
+	    {ok,Body} = hackney:body(Ref),
 	    {ok,F} = file:open("eric2016.txt",[read,write]),
 	    file:write(F,Body),
 	    Struct=mochiweb_html:parse(Body),
@@ -32,9 +31,7 @@ read(Url) ->
 	    {ok,F3} = file:open("itemss.txt",[read,write]),
 	    file:write(F3,io_lib:print(ItemList)),
 	    store_items(ItemList);
-	{ok, {{"HTTP/1.1",202,"Accepted"},
-	      _Head,
-	      _Body}} ->
+	{ok, 202,_Head,_Ref} ->
 	    io:format("request accepted, wait a bit,",[]),
 	    timer:sleep(10000),
 	    read(Url);

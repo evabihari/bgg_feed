@@ -9,7 +9,7 @@ Next to this one this library contains small utilities to get prepared for Messe
 - Eric Martin is creating a big list, where all relevant information is available; this list is read through and the booth numbers, games prices (list might be longer in the future) will be collected and stored into riak. This can be triggered by calling: `review_eric:read().`
 As his list for 2016 not avalibale yet, currently I'm using his 2015's list to get prepared.
 
-- There is an RSS field called `"http://boardgamegeek.com/recentadditions/rss?domain=boardgame"` an other utility willl check the neew feeds and store new games as well. 
+- There is an RSS field called `"http://boardgamegeek.com/recentadditions/rss?domain=boardgame"` an other utility willl check the new feeds and store new games as well. 
 
 To start this functionality call `bgg_feed:start().`
 

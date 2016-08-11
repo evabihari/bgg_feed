@@ -17,6 +17,7 @@
 -export([replace_strange_characters/1]).
 -export([reset_booths_table/0,convert_to_timestamp/1]).
 -export([reset_games_table/0]).
+-export([print_links/1, print_titles/1]).
 
 
 -include("../include/record.hrl").
@@ -26,11 +27,12 @@ start_apps() ->
     ok = application:ensure_started(crypto),
     ok = application:ensure_started(asn1),
     ok = application:ensure_started(public_key),
-    ok = application:ensure_started(ssl).
+    ok = application:ensure_started(ssl),
+    hackney:start().
 
 all(Url) ->
     {ok, Pid} = supervisor:start_child(bgg_feed_sup, [Url]),
-    bgg_feed_parse:resume(Pid).
+    bgg_feed_parse_hackney:resume(Pid).
 
 titles(Url) ->
     [feeder_entries:get(title, Entry) || Entry <-  entries(Url)].
@@ -137,7 +139,7 @@ new_game(Id) ->
     Url= string:concat(?BGG_GAME_URL , Id),
     new_game(Id, Url, []).
 new_game(Id, Url, EntriesRecord) ->
-    case httpc:request(Url) of
+    case hackney:request(Url) of
 	{error, socket_closed_remotely} ->
 	    io:format("socket closed remotely, Url=~p let's wait and try again~n",
 		      [Url]),
@@ -146,8 +148,9 @@ new_game(Id, Url, EntriesRecord) ->
 	{error,Reason} ->
 	    io:format("httpc:request returned error with Reason: ~p~n ",
 		      [Reason]);
-	{ok, {{"HTTP/1.1",200,"OK"},_Options,ResponseBody}} ->
+	{ok, 200,_Header,ClientRef} ->
 	    %% io:format("http request towards ~p got OK ~n",[Url]),
+	    {ok,ResponseBody}=hackney:body(ClientRef),
 	    {Xml,_}=xmerl_scan:string(ResponseBody),
 	    {boardgames,_,[_,Data|_]}=xmerl_lib:simplify_element(Xml),
 	    {boardgame,_,Properties}=Data,
@@ -448,3 +451,17 @@ reset_games_table()->
     BinKeys=riak_handler:list_keys(game),
     Keys=lists:map(fun(X) -> binary_to_list(X) end, BinKeys),
     reset_table(game,Keys).
+
+print(L) ->
+    lists:foreach(fun (Title) ->
+			  io:format("~ts~n", [Title])
+		  end, L),
+    ok.
+
+print_titles(Url) ->
+    Titles= titles(Url),
+    print(Titles).
+
+print_links(Url) ->
+    print(links(Url)).
+
