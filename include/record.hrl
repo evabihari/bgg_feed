@@ -61,6 +61,7 @@
 
 -record(booth, 
 	{
+	  key = [], %note: key is the URL coded version of publisher name
 	  publisher = [],
 	  id = "",
 	  booth = "undefined"

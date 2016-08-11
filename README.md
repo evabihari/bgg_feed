@@ -49,11 +49,22 @@ where new releases are listed.
 
 Try to use: `pdftotext input_pdf output_file -table`
 
+Table is not available until Sept
+
 Write a parser which will pull information from this sheet might be interesting for us.
 7. Unicode not supported for Riak keys -> find out a method to convert
    Publisher names to a string which does not contain unicode
    char's. (need to be done on the parsing side (Erlang) and the
    google docs handling (Python) side as well
+   
+   -DONE
+   Idea:
+   1. We should URL encode the Publisher name and use that one for
+   key! - not working special chars remained in teh string + url
+   encoding resulted different string in Python and Erlang
+   2. Remove non_asscii characters from the name when creating the key
+      -> this is now working! Problem can be if a Publisher name will
+      contain only non-ASCII chars (ex. Japaneese nam)
 8. try to find a solution making sure google sheet will be user friendly (format, etc)
 
 

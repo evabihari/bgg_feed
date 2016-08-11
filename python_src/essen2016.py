@@ -3,6 +3,7 @@ import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 from boardgamegeek import BoardGameGeek
 import riak
+import urllib
 myClient=riak.RiakClient(pb_port=8087)  # protocol can be 'pbc'/'http'
 bggBucket = myClient.bucket('bgg')
 boothBucket = myClient.bucket('booth')
@@ -48,7 +49,8 @@ def convert_rank(DictList):
     result=""
     for dict in DictList:
         if (dict['value'] != None):
-            s=dict['friendlyname'] + ":" + dict['name'] + "=" + str(dict['value'])
+#            s=dict['friendlyname'] + ":" + dict['name'] + "=" + str(dict['value'])
+            s=dict['friendlyname'] + ":" + str(dict['value'])
             result+=s
         result+=" "
     return result
@@ -73,18 +75,23 @@ def find_price(Id):
     else:
         return "not known yet"
 
+def remove_non_ascii(text):
+    return ''.join(i for i in text if ord(i)<128)
+
 def find_booth(Publishers):
     for P in Publishers:
         print P
+        key=remove_non_ascii(P)
+        print "Publisher=",P, "   key=", key
         try:
-            if (boothBucket.get(P).data != None):
-                Data = boothBucket.get(P).data
+            if (boothBucket.get(key).data != None):
+                Data = boothBucket.get(key).data
                 print Data
                 return Data['booth']
  
             else:
                 return "not known yet"
-        except TypeError:
+        except TypeError:            
             print TypeError
             return "publisher name in unicode"
     
@@ -135,7 +142,7 @@ credentials = ServiceAccountCredentials.from_json_keyfile_name('GetBGGInfo-a1f86
 gc = gspread.authorize(credentials)
 sh = gc.open("Essen 2016")
 wks_input = sh.sheet1
-sheetName="data_form_BGG"
+sheetName="data_from_BGG"
 try:
     sh.add_worksheet(title=sheetName,rows="100", cols="25")
 except gspread.exceptions.RequestError:

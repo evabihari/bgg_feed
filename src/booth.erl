@@ -3,6 +3,7 @@
 -include("../include/record.hrl").
 
 -json({booth,   
+       {string, "key"},
        {string,"publisher"},
        {string,"id"},
        {string,"booth"}}).

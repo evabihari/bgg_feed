@@ -110,11 +110,13 @@ find_and_store_booth(Properties,[{<<"body">>,_,[Body]}|_]) ->
 		       [Booth|_]=string:tokens(SubStr,","),
 		       bgg_feed_utils:replace_strange_characters(Booth)
 	       end,
-    PubRecord=#booth{publisher = Publisher,
+    Key=remove_non_ascii(Publisher),
+    PubRecord=#booth{key=Key,
+		     publisher = Publisher,
 		     id = Id,
 		     booth = Location},
     mnesia:dirty_write(booths,PubRecord),
-    riak_handler:store(Publisher,PubRecord).
+    riak_handler:store(Key,PubRecord).
 
 find_and_store_game_price(Properties,[{<<"body">>,[],[]}]) ->
     %% there were no body in the geeklist item, let's set the body to a binary containing and empty string
@@ -162,3 +164,7 @@ replace_eur(Text) ->
 	_ ->
 	    Text
 	end.
+
+remove_non_ascii(List) ->
+    lists:filter(fun(X) -> X<128 end, List).
+				 

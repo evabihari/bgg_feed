@@ -411,10 +411,11 @@ read_game(Game_id) ->
    
 replace_strange_characters(Text) ->
    Bullet={[226,130,172]," -.- "},
+   Bullet2={[226,128,162]," -.- "},
    EM_Dash={[226,128,148], " - "}, 
    Latin_small={[195,175], "A"},
    Euro={[226,130,172],"EUR "},
-  replacement(Text,[Bullet,EM_Dash,Latin_small,Euro]).
+  replacement(Text,[Bullet,EM_Dash,Latin_small,Euro, Bullet2]).
 
 replacement(Text,[]) ->
     Text;
