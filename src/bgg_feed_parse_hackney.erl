@@ -56,8 +56,7 @@ opts(req) -> [
   {sync, false}].
 
 request(State=#state{url=Url}) ->
-%  case httpc:request(get, {Url, []}, opts(http), opts(req)) of
-  Opts = [{async, once}, {stream_to,self()}],
+  Opts = [{async,once}],
   case hackney:get(Url,[], <<>>, Opts) of
       {ok, Ref} ->
 	  receive
@@ -138,7 +137,7 @@ stream(State=#state{ref=Ref, httpcPid=_Pid}) ->
           io:format("got error: ~p~n", [Reason]),      
 	  {error, Reason};
    {hackney_response, Ref, Bin} ->
-	  io:format("got chunk: ~n", []),	  
+	  io:format("got chunk: ~s ~n", [binary_to_list(Bin)]),	  
 	  parse(Bin, State);
       Other ->
 	  io:format("got other:~p ~n", [Other]),

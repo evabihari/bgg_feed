@@ -1,7 +1,6 @@
 -module(bgg_feed).
 
--export([print_links/0]).
--export([print_titles/0]).
+
 -export([start/0, start/1]).
 -export([stop/0]).
 -export([run/0, run/1]).
@@ -29,13 +28,8 @@ start(_Url) ->
     application:start(?MODULE).
 
 stop() ->
-    application:stop(?MODULE).
-
-print_titles() ->
-    spawn(bgg_feed_utils,print_titles,[?BGG_URL]).
-
-print_links() ->
-    bgg_feed_utils:print_links(?BGG_URL).
+    application:stop(?MODULE),
+    unregister(run).
 
 get_new_items(Type) ->
     MatchHead=#entries{link='$1', title='$2',type=Type,_='_'},

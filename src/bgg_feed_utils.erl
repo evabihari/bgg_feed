@@ -17,17 +17,19 @@
 -export([replace_strange_characters/1]).
 -export([reset_booths_table/0,convert_to_timestamp/1]).
 -export([reset_games_table/0]).
+-export([print_links/0]).
+-export([print_titles/0]).
 -export([print_links/1, print_titles/1]).
 -export([to_timestamp/1]).
 
 -include("../include/record.hrl").
 
 start_apps() ->
-    ok = application:ensure_started(inets),
-    ok = application:ensure_started(crypto),
-    ok = application:ensure_started(asn1),
-    ok = application:ensure_started(public_key),
-    ok = application:ensure_started(ssl),
+    %% ok = application:ensure_started(inets),
+    %% ok = application:ensure_started(crypto),
+    %% ok = application:ensure_started(asn1),
+    %% ok = application:ensure_started(public_key),
+    %% ok = application:ensure_started(ssl),
     hackney:start().
 
 all(Url) ->
@@ -187,7 +189,7 @@ new_game(Id, Url, EntriesRecord) ->
 	    riak_handler:store(Id,Game),
 	    mnesia:dirty_write(games,Game),
 	    Game;
-	{ok,ErrorCode ,Reason, ClientRef} ->
+	{ok,ErrorCode ,Reason, _ClientRef} ->
 	    io:format("request towards ~p failed with ErrorCode=~p, ErrorReason=~p let's wait and try again~n",
 		      [Url,ErrorCode,Reason]),
 	    timer:sleep(10000),
@@ -457,6 +459,11 @@ print(L) ->
 			  io:format("~ts~n", [Title])
 		  end, L),
     ok.
+print_titles() ->
+    print_titles(?BGG_URL).
+
+print_links() ->
+    print_links(?BGG_URL).
 
 print_titles(Url) ->
     Titles= titles(Url),
