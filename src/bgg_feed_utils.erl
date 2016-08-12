@@ -151,7 +151,7 @@ new_game(Id, Url, EntriesRecord) ->
 	{ok, 200,_Header,ClientRef} ->
 	    %% io:format("http request towards ~p got OK ~n",[Url]),
 	    {ok,ResponseBody}=hackney:body(ClientRef),
-	    {Xml,_}=xmerl_scan:string(ResponseBody),
+	    {Xml,_}=xmerl_scan:string(binary_to_list(ResponseBody)),
 	    {boardgames,_,[_,Data|_]}=xmerl_lib:simplify_element(Xml),
 	    {boardgame,_,Properties}=Data,
 	    Mechanics=find_tupples(Properties,boardgamemechanic),
@@ -187,9 +187,9 @@ new_game(Id, Url, EntriesRecord) ->
 	    riak_handler:store(Id,Game),
 	    mnesia:dirty_write(games,Game),
 	    Game;
-	{ok, {{_,ErrorCode,ErrorReason},_,_}} ->
+	{ok,ErrorCode ,Reason, ClientRef} ->
 	    io:format("request towards ~p failed with ErrorCode=~p, ErrorReason=~p let's wait and try again~n",
-		      [Url,ErrorCode,ErrorReason]),
+		      [Url,ErrorCode,Reason]),
 	    timer:sleep(10000),
 	    new_game(Id, Url, EntriesRecord)
     end.

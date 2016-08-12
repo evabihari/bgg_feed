@@ -139,7 +139,10 @@ stream(State=#state{ref=Ref, httpcPid=_Pid}) ->
 	  {error, Reason};
    {hackney_response, Ref, Bin} ->
 	  io:format("got chunk: ~n", []),	  
-	  parse(Bin, State)
+	  parse(Bin, State);
+      Other ->
+	  io:format("got other:~p ~n", [Other]),
+	  stream(State)	  
   end.
 
 handle_sync_event(_Event, _From, _StateName, StateData) ->
