@@ -18,7 +18,7 @@
 -export([reset_booths_table/0,convert_to_timestamp/1]).
 -export([reset_games_table/0]).
 -export([print_links/1, print_titles/1]).
-
+-export([to_timestamp/1]).
 
 -include("../include/record.hrl").
 

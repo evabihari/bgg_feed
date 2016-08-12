@@ -150,7 +150,9 @@ find_and_store_game_price(Properties,[{<<"body">>,_,[Body]}|_]) ->
 		    [GameRec|_] -> 
 			GameRec
 		end,
-    bgg_feed_utils:update_game(OldRecord#game{price = Price}).
+    Date=integer_to_list(bgg_feed_utils:to_timestamp(calendar:local_time())),
+    bgg_feed_utils:update_game(OldRecord#game{price = Price,
+					      updated=Date}).
 
 
 replace_eur(Text) ->
