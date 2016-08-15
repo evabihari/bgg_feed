@@ -25,11 +25,6 @@
 -include("../include/record.hrl").
 
 start_apps() ->
-    %% ok = application:ensure_started(inets),
-    %% ok = application:ensure_started(crypto),
-    %% ok = application:ensure_started(asn1),
-    %% ok = application:ensure_started(public_key),
-    %% ok = application:ensure_started(ssl),
     hackney:start().
 
 all(Url) ->
@@ -147,9 +142,21 @@ new_game(Id, Url, EntriesRecord) ->
 		      [Url]),
 	    timer:sleep(10000),
 	    new_game(Id, Url, EntriesRecord);
+	{error, closed} ->
+	    %REST API overloaded, let's wait a bit
+	    io:format("hackney returned closed, Url=~p let's wait and try again~n",
+		      [Url]),
+	    timer:sleep(50000),
+	    new_game(Id, Url, EntriesRecord);
+	{error,bad_request} ->
+	    %REST API overloaded, let's wait a bit
+	    io:format("httpc:request returned error with bad_request, url: ~p~n ",
+		      [Url]),
+	    timer:sleep(10000),
+	    new_game(Id, Url, EntriesRecord);
 	{error,Reason} ->
-	    io:format("httpc:request returned error with Reason: ~p~n ",
-		      [Reason]);
+	    io:format("httpc:request returned error with Reason: ~p, url: ~p~n ",
+		      [Reason,Url]);
 	{ok, 200,_Header,ClientRef} ->
 	    %% io:format("http request towards ~p got OK ~n",[Url]),
 	    {ok,ResponseBody}=hackney:body(ClientRef),

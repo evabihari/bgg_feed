@@ -24,10 +24,10 @@
 -record(state, {
   entries=[],
   feed,
-  httpcPid,
+%  httpcPid,
   parsing=false,
   ref,
-  reqId,
+%  reqId,
   url
 }).
 
@@ -60,14 +60,6 @@ request(State=#state{url=Url}) ->
   case hackney:get(Url,[], <<>>, Opts) of
       {ok, Ref} ->
 	  receive
-	      %% {http, {ReqId, stream_start, _Headers, Pid}} ->
-	      %% 	  stream(State#state{reqId=ReqId, httpcPid=Pid});
-	      %% {http, {error, Reason}} ->
-	      %% 	  {error, Reason};
-	      %% {http, {ReqId, {error, Reason}}} ->
-	      %% 	  {error, Reason};
-	      %% {error, Reason} ->
-	      %% 	  {error, Reason};
 	      {hackney_response, Ref, {status, StatusInt, Reason}} ->
 		  io:format("got status: ~p with reason ~p~n~n", [StatusInt,
                                                           Reason]),
@@ -101,9 +93,10 @@ ready(executing, _, State) ->
 ready(stop,_,State) ->
     {stop, normal, {ok, [],[]}, State}.
 
-
-terminate(_Reason, _StateName, #state{reqId=ReqId}) ->
-  httpc:cancel_request(ReqId);
+terminate(_Reason, _StateName, #state{ref=undefined}) ->
+    io:format("terminate when ref=undefined ~n",[]);
+terminate(_Reason, _StateName, #state{ref=Ref}) ->
+  hackney:close(Ref);
 terminate(_Reason, _StateName, _StateData) ->
   io:format("terminate with Reason=~p, StateData=~p~n",[_Reason, _StateData]),
   ok.
@@ -124,7 +117,7 @@ parse(Chunk, State) when State#state.parsing ->
 parse(Chunk, State) ->
   feeder:stream(Chunk, parser_opts(State#state{parsing=true})).
 
-stream(State=#state{ref=Ref, httpcPid=_Pid}) ->
+stream(State=#state{ref=Ref}) ->
   hackney:stream_next(Ref),
   receive
    {hackney_response, Ref, {headers, Headers}} ->
@@ -137,7 +130,7 @@ stream(State=#state{ref=Ref, httpcPid=_Pid}) ->
           io:format("got error: ~p~n", [Reason]),      
 	  {error, Reason};
    {hackney_response, Ref, Bin} ->
-	  io:format("got chunk: ~s ~n", [binary_to_list(Bin)]),	  
+	  io:format("got chunk: ~n", []),	  
 	  parse(Bin, State);
       Other ->
 	  io:format("got other:~p ~n", [Other]),

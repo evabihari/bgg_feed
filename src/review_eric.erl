@@ -35,6 +35,11 @@ read(Url) ->
 	    io:format("request accepted, wait a bit,",[]),
 	    timer:sleep(10000),
 	    read(Url);
+	{error, closed} ->
+	    %let'ss try agin ?
+	    io:format("request failed, let's try again~n",[]),
+	    timer:sleep(10000),
+	    read(Url);	    
 	Result -> io:format("Http request failed, Result=~p~n",[Result])
     end.
 
