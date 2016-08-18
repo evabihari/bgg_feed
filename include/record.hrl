@@ -59,6 +59,47 @@
 	  updated = "0" %timestamp of the date last update has been done
 	}).
 
+-record(designer,
+	{ name :: string(),
+	  games,
+	  notes
+}).
+
+-record(artist,
+	{ name :: string(),
+	  games,
+	  notes
+}).
+
+-record(mechanics,
+	{ name :: string(),
+	  games,
+	  notes
+}).
+
+-record(publisher,
+	{ publisher_id :: string(),
+	  name :: string(),
+	  booth,
+	  games,
+	  notes
+}).
+
+
+-record(categories,
+	{ name :: string(),
+	  value,
+	  games,
+	  notes
+}).
+
+-record(families,
+	{ name :: string(),
+	  value,
+	  games,
+	  notes
+}).
+
 -record(booth, 
 	{
 	  key = [], %note: key is the URL coded version of publisher name

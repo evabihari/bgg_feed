@@ -88,7 +88,7 @@ result({fatal_error, _, Reason,_ ,_State}) ->
   {stop, error, Reason}.
 
 ready(executing, _, State) ->
-  R = request(State),
+   R = request(State),
    result(R);
 ready(stop,_,State) ->
     {stop, normal, {ok, [],[]}, State}.

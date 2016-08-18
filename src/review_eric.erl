@@ -128,12 +128,15 @@ find_and_store_game_price(Properties,[{<<"body">>,_,[Body]}|_]) ->
     Text=binary_to_list(Body),
     Pattern1=[226,128,162]++" Price",
     Pattern2=[226,128,162]++" MSRP",
+    Pattern3=[226,128,162]++" Preorder price",
 
     St1=string:rstr(Text,Pattern1),
     St2=string:rstr(Text,Pattern2),
-    StartPos = max(St1,St2),
+    St3=string:rstr(Text,Pattern3),
+    StartPos = maxvalue([St1,St2,St3],0),
     Offset = case StartPos of
 		 St1 -> 5;
+		 St3 -> 14;
 		 _ -> 0
 	     end,
     Price = case StartPos of
@@ -158,6 +161,13 @@ find_and_store_game_price(Properties,[{<<"body">>,_,[Body]}|_]) ->
     Date=integer_to_list(bgg_feed_utils:to_timestamp(calendar:local_time())),
     bgg_feed_utils:update_game(OldRecord#game{price = Price,
 					      updated=Date}).
+
+maxvalue([],Value) ->
+    Value;
+maxvalue([H|T],Value) when Value>H ->
+    maxvalue(T,Value);
+maxvalue([H|T],_V) ->
+    maxvalue(T,H).
 
 
 replace_eur(Text) ->
