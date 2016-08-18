@@ -19,10 +19,15 @@
 -define(R2P(Record), record_to_proplist(#Record{} = Rec) ->
 	       lists:zip(record_info(fields, Record), tl(tuple_to_list(Rec)))).
 
-
+%% encode([{"id","value"},{"key","value1"},{"key2",["v1","v2"]}])
+%% "{\"fields\": {\"id\": \"value\", \"key\": \"value1\", \"key2\":  [ \"v1\",\"v2\" ]  }}"
+%%
+%% attachment handling:
+%% encode([{"id","value"},{"key","value1"},{"attachments",[{"id","value"},{"url","urlvalue"}]}])
+%% "{\"fields\": {\"id\": \"value\", \"key\": \"value1\", \"attachments\": [{ \"id\": \"value\", \"url\": \"urlvalue\"}] }}"
 encode(Fields) when is_list(Fields) ->
     F_list=create_field_list(Fields),
-    "{\"fields\": {"++create_json_string(F_list)++" }}";
+    "{\"fields\": {"++comma_separated_string_list(F_list)++" }}";
 encode(Term) ->
     to_json(Term).
 
@@ -34,8 +39,12 @@ create_field_list([FRecord|Tail]) when  is_record(FRecord,field)->
 create_field_list([{Name,Value}|Tail]) ->
     ["\""++Name++"\": "++encode_value(Value)|create_field_list(Tail)]. 
 
+encode_value(Value) when is_tuple(Value) ->
+    "[{ " ++ comma_separated_string_list(create_field_list([Value])) ++ "}]";
 encode_value(Value) ->
     case lists:flatten(Value) of
+	[V|_] when is_tuple(V) ->
+	    "[{ " ++ comma_separated_string_list(create_field_list(Value)) ++ "}]";
 	Value ->
 	    "\""++Value++"\"";
 	_V ->
@@ -43,7 +52,7 @@ encode_value(Value) ->
 	    " [ \""++string_list(Value)++"\" ] "
     end.
 
-create_json_string(InputStringList) ->
+comma_separated_string_list(InputStringList) ->
     lists:flatten(string:join([[X] || X <- InputStringList],", ")).
 
 string_list(ISL) ->

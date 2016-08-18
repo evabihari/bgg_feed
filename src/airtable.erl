@@ -110,7 +110,14 @@ get(AT,Table_name, Params) ->
 	     {LV,OV} ->
 		 Url ++"?limit="++LV++"&offset="++OV
 	 end,
-    request(AT,Url1).
+    case request(AT,Url1) of
+	{ok,Result} ->
+	    R=jsx:decode(Result),
+	    Records=proplists:get_value(list_to_binary("records"),R),
+	    {ok,[airtable_record:decode(X) || X <- Records]};
+	{error,Reason} ->
+	    {error,Reason}
+    end.
 
 get_param(_Name,[]) ->
     [];
@@ -120,7 +127,7 @@ get_param(Name,[_|ParamList]) ->
     get_param(Name,ParamList).
 
 create(AT, Table_name, Data) ->
-    Payload=create_payload(Data,true),
+    Payload=create_payload(Data,false),
     case request(AT, "POST", Table_name, [], Payload) of
 	{ok,Result} -> {ok,airtable_record:decode(Result)};
 	{error,Reason} ->
@@ -149,7 +156,7 @@ update_all(AT, Table_name, Record_name, Data) ->
 
 create_payload(Data,true) ->
     D1=Data -- "}",
-    D1 ++ ",\"typecast\": true}";
+    D1 ++ " , \"typecast\": true}";
 create_payload(Data,_) ->
     Data.
 

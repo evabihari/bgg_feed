@@ -1,6 +1,13 @@
 ebin
-src/*.beam
 deps
 Mnesia*
 .rebar
 *.txt
+python_src/*.pyc
+*.beam
+*.csv
+*.pdf
+a.*
+*.app
+src/oath2c_google_exmple.erl
+src/oauth2c.erl

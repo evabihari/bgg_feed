@@ -69,3 +69,69 @@ Write a parser which will pull information from this sheet might be interesting 
 
 
 
+Other
+====
+Airtable (https://airtable.com) API support added.
+
+Basic usage:
+1. initialize:
+
+`hackney:start().
+ AT=airtable:init(Base_id, API_key)`
+ 
+ where `Base_id` is the ID connected to teh Airtable table you want to
+ modify
+ `API_key` is the key AIrtable provided towards you - please keep it
+ for your personal usage!
+
+2. create new record:
+
+ `airtable:create(AT, Table_name, Data). -> {ok, #airtable_record}|{error,Reason}`
+ creates a new record in the given Airtable Table.
+ 
+ Data can be encoded by calling:`airtable_record:encode(...)`
+ 
+ examples:
+` 
+ encode([{"id","value"},{"key","value1"},{"key2",["v1","v2"]}])
+ 
+ > "{\"fields\": {\"id\": \"value\", \"key\": \"value1\", \"key2\":  [ \"v1\",\"v2\" ]  }}"
+
+ attachment handling:
+ encode([{"id","value"},{"key","value1"},{"attachments",[{"id","value"},{"url","urlvalue"}]}])
+>  "{\"fields\": {\"id\": \"value\", \"key\": \"value1\",\"attachments\":
+>                                       [{ \"id\": \"value\", \"url\": \"urlvalue\"}] }}"`
+ 
+3. list records:
+`airtable:get(AT, Table_name) -> {ok,[#airtable_record]}|{error,Reason}`
+
+4. update some fields in a record:
+
+`airtable:update(AT, Table_name, Record_id, Data). -> {ok,
+#airtable_record}|{error,Reason}`
+
+Record_id is internal Airtable record idenity (see at  airtable:get)
+
+5. update all fields in a record:
+`airtable:update_all(AT, Table_name, Record_id, Data). -> {ok,
+#airtable_record}|{error,Reason}`
+
+Record_id is internal Airtable record idenity (see at  airtable:get)
+ 
+ 6. Delete an airtable record:
+ 
+`airtable:delete(AT, Table_name, Record_id) -> {ok, "deleted"} |
+{erreor, Reason}`
+
+7. Find records in a Table where a field equals to a specific value:
+
+`airtable:find(AT, Table_name,Filed_name, Value). -> `{ok,
+[#airtable_record]}|{error,Reason}`
+
+
+8. Filter records in a Table where a logical query is true:
+`airtable:filter(AT, Table_name,Query). -> {ok,
+[#airtable_record]}|{error,Reason}`
+
+`airtable:filter(AT, Table_name,{FieldName,Operator,Value}). -> {ok,
+[#airtable_record]}|{error,Reason}`
