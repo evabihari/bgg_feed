@@ -135,3 +135,12 @@ Record_id is internal Airtable record idenity (see at  airtable:get)
 
 `airtable:filter(AT, Table_name,{FieldName,Operator,Value}). -> {ok,
 [#airtable_record]}|{error,Reason}`
+
+9. Game can be added to the "Games" airtable, some of the
+   corresponding links are created as well (Publishers, etc)
+   
+   TODO: Not all the fields are handled;
+	          Picture link to be extracted and added as attachment
+			  
+			  `bgg_to_airtable:game_to_airtable(Id)`
+			  
