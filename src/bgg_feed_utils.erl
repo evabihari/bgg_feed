@@ -126,7 +126,8 @@ handle_item(boardgame,EntriesRecord) ->
     [_,Id|_]=string:tokens(GameUrlPostFix,"/"),				       
     Url=?BGG_URL++"/xmlapi"++GameUrlPostFix,
     case ets:lookup(games,Id) of
-	[] -> new_game(Id, Url, EntriesRecord);
+	[] -> Game=new_game(Id, Url, EntriesRecord),
+	      update_game(Game);
 	_ -> ok
     end;
 handle_item(_Type,_EntriesRecord) ->
@@ -193,8 +194,8 @@ new_game(Id, Url, EntriesRecord) ->
 		   lang_dependence=Lang_dependence,
 		   updated=get_date()
 		  },
-	    riak_handler:store(Id,Game),
-	    mnesia:dirty_write(games,Game),
+%	    riak_handler:store(Id,Game),
+%	    mnesia:dirty_write(games,Game),
 	    Game;
 	{ok,ErrorCode ,Reason, _ClientRef} ->
 	    io:format("request towards ~p failed with ErrorCode=~p, ErrorReason=~p let's wait and try again~n",

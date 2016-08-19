@@ -11,11 +11,7 @@
 -define(API_VERSION,"0").
 -define(BASE_ID, "apps6C5ZrvEBCsx9I").
 -define(API_KEY, "keyIsTQjg9qICigb5").
--record(airtable, {
-	  airtable_url=?API_URL ++ ?API_VERSION ++ "/",
-	  base_url,
-	  headers
-	 }).
+
 %% API
 -export([init/0,init/2,
 	 request/2,request/3,request/4,request/5,
@@ -24,6 +20,13 @@
 	 update/4,update_all/4,
 	 find/4]).
 
+-include("../include/record.hrl").
+
+-record(airtable, {
+	  airtable_url=?API_URL ++ ?API_VERSION ++ "/",
+	  base_url,
+	  headers
+	 }).
 %%%===================================================================
 %%% API
 %%%===================================================================
@@ -179,7 +182,13 @@ find(AT,Table_name, Field, Value) ->
     filter(AT,Table_name,{Field,"=",Value}).
 
 filter(AT,Table_name, {A,Rel,B}) ->
-    Query=A++Rel++"\""++B++"\"",
+    Escape = case is_int(B) of
+		 true ->
+		      "\"";
+		 _ ->
+		     "\'"
+	     end,
+    Query= A++Rel++Escape++B++Escape,
     filter(AT,Table_name, Query);
 filter(AT,Table_name, Query) ->
     Url=Table_name ++ "?filterByFormula="++Query,
@@ -192,3 +201,10 @@ filter(AT,Table_name, Query) ->
 	    {error,Reason}
     end.
 
+is_int(S) ->
+    try
+        _ = list_to_integer(S),
+        true
+    catch error:badarg ->
+        false
+    end.

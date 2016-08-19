@@ -51,7 +51,8 @@ store_items([{<<"item">>,Properties,Body}|ItemList]) ->
 	    find_and_store_booth(Properties,Body);
 	["thing","boardgame"] ->
 	    % check whether game already stored and this is a fresh update or not:
-	    [Id,_Name,Update] =  checkType(Properties,[<<"objectid">>,<<"objectname">>,<<"editdate">>]),
+	    [Id,_Name,Update] =  checkType(Properties,[<<"objectid">>,<<"objectname">>,
+						       <<"editdate">>]),
 	     Last_updated = case mnesia:dirty_read(games,Id) of
 		    [] -> 
 			"0";	      

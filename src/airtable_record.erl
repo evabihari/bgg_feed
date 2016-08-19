@@ -2,8 +2,6 @@
 %% -compile({parse_transform, 'ejson_trans'}).
 -include("../include/record.hrl").
 
--record(airtable_record, {id, fields, createdTime}).
--record(field,{name,value}).
 -json({airtable_record,   
        {string, "id"},
        {list,"fields",[{type,field}]},

@@ -107,3 +107,6 @@
 	  id = "",
 	  booth = "undefined"
 	}).
+
+-record(airtable_record, {id, fields, createdTime}).
+-record(field,{name,value}).
