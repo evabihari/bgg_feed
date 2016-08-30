@@ -4,6 +4,14 @@ from oauth2client.service_account import ServiceAccountCredentials
 from boardgamegeek import BoardGameGeek
 import riak
 import urllib
+import subprocess
+import shlex
+#trick?
+import sys
+reload(sys)
+sys.setdefaultencoding("utf-8")
+#trick?
+
 myClient=riak.RiakClient(pb_port=8087)  # protocol can be 'pbc'/'http'
 bggBucket = myClient.bucket('bgg')
 boothBucket = myClient.bucket('booth')
@@ -80,9 +88,8 @@ def remove_non_ascii(text):
 
 def find_booth(Publishers):
     for P in Publishers:
-        print P
         key=remove_non_ascii(P)
-        print "Publisher=",P, "   key=", key
+        print "Publisher key=", key
         try:
             if (boothBucket.get(key).data != None):
                 Data = boothBucket.get(key).data
@@ -167,13 +174,14 @@ while (wks_input.cell(input_row,1).value!=end_value):
         String = re.search("(?P<url>https?://[^\s]+)/",input_value).group("url")
         URL = String.split('"')[0]
         Id=[s for s in URL.split("/") if s.isdigit()][0]
-        print "URL=", URL, "Id=", Id, "Value=", value, " input_value=",input_value 
+    #    print "URL=", URL, "Id=", Id, "Value=", value, " input_value=",input_value 
+        subprocess.call(["./at_escript.sh", Id])    
         game = bgg.game(game_id=Id)
-        print "Name=", game.name
+     #   print "Name=", game.name
         print "id=", game.id
         for n in game.alternative_names: print n.encode("utf-8")
         wks_output.update_cell(output_row,1,input_value)
-        update_games_info(output_row,game)        
+        update_games_info(output_row,game)
     else:
         copy_row(wks_input,wks_output,input_row,output_row)
     input_row+=1

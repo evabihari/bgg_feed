@@ -66,7 +66,9 @@ store_items([{<<"item">>,Properties,Body}|ItemList]) ->
 		    find_and_store_game_price(Properties,Body);
 	       true -> ok
 	    end;
-			
+		
+	["thing","boardgameaccessory"] ->
+	    out_of_scope_for_now;
 	_ -> io:format("will_be_find_later, Properties = ~p~n",[Properties]), 
 	    will_be_find_later
     end,

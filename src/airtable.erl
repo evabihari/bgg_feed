@@ -64,6 +64,8 @@ request(AT, Method, Url, Params, Payload) ->
 		      AT#airtable.headers
 	      end,
     ReqUrl=AT#airtable.base_url++"/"++Url,
+    io:format("Url=~p, Method=~p, Headers=~p, Payload=~p~n, Params=~p  ~n",
+	      [Url,Method, Headers,Payload, Params]),
     case hackney:request(Method, ReqUrl, Headers, Payload, Params) of
 	{ok, 200, ResponseHeaders} ->
 	    {ok, 200, ResponseHeaders};
@@ -78,6 +80,14 @@ request(AT, Method, Url, Params, Payload) ->
 	{error, {closed, PartialBody}} ->
 	    io:format("request answered with closed, partial body was: ~p~n",[PartialBody]),
 	    {error, {closed, PartialBody}};
+	{error, timeout} ->
+	    % Airtable rate control, let's wait a bit"
+	    % The API is limited to 5 requests per second.
+	    % If you exceed this rate, you will receive a 429 status code and will need 
+	    % to wait 30 seconds before subsequent requests will succeed.
+	    io:format("timeout ~n"),
+	    timer:sleep(30000),
+	    request(AT, Method, Url, Params, Payload);
 	{error, Reason} ->
 	    io:format("request resulted in error, Reason was: ~p~n",[Reason]),
 	    {error,Reason}				   
@@ -131,6 +141,7 @@ get_param(Name,[_|ParamList]) ->
 
 create(AT, Table_name, Data) ->
     Payload=create_payload(Data,false),
+    io:format("Payload=~p~n",[Payload]),
     case request(AT, "POST", Table_name, [], Payload) of
 	{ok,Result} -> {ok,airtable_record:decode(Result)};
 	{error,Reason} ->
@@ -138,7 +149,7 @@ create(AT, Table_name, Data) ->
     end.
 
 update(AT, Table_name, Record_id, Data) ->
-    Payload=create_payload(Data,true),
+    Payload=create_payload(Data,false),
     Url=Table_name ++ "/" ++ Record_id,
     case request(AT, "PATCH", Url, [], Payload) of
 	{ok,Result} ->
@@ -179,7 +190,21 @@ delete(AT,Table_name, Record_name) ->
     end.
 
 find(AT,Table_name, Field, Value) ->
-    filter(AT,Table_name,{Field,"=",Value}).
+    %find Airtable records in Table_name where Field=Value
+    case filter(AT,Table_name,{Field,"=",Value}) of
+	{ok, Result} ->
+	    {ok,Result};
+	{error,{422,_Reason}} ->
+	    % "INVALID_FILTER_BY_FORMULA\" -> value might contain invalid char, let's try to 
+	    % write our own search method going through the whole table
+	    {ok,go_through_table(AT,Table_name,Field,Value)};
+	{error,{400,_Reason}} ->
+	    % "ERROR" -> value might contain invalid char, let's try to 
+	    % write our own search method going through the whole table
+	    {ok,go_through_table(AT,Table_name,Field,Value)};
+	{error, Reason} ->
+	    {error, Reason}
+    end.
 
 filter(AT,Table_name, {A,Rel,B}) ->
     Escape = case is_int(B) of
@@ -190,6 +215,7 @@ filter(AT,Table_name, {A,Rel,B}) ->
 	     end,
     Query= A++Rel++Escape++B++Escape,
     filter(AT,Table_name, Query);
+
 filter(AT,Table_name, Query) ->
     Url=Table_name ++ "?filterByFormula="++Query,
     case request(AT, "GET", Url) of
@@ -198,6 +224,7 @@ filter(AT,Table_name, Query) ->
 	    Records=proplists:get_value(list_to_binary("records"),R),
 	    {ok,[airtable_record:decode(X) || X <- Records]};
 	{error,Reason} ->
+	    io:format("Filter resulted in Error, Reason=~p~n",[Reason]),
 	    {error,Reason}
     end.
 
@@ -208,3 +235,24 @@ is_int(S) ->
     catch error:badarg ->
         false
     end.
+
+go_through_table(AT,Table,Field,Value) ->
+    {ok,ATRs}=airtable:get(AT,Table),
+    filtering(ATRs, Field, Value).
+
+filtering([],_Filed,_Value) ->
+    [];
+filtering([ATR|ATRs],Field,Value) ->
+    case check_field_by_value(ATR#airtable_record.fields,Field,Value) of
+	true -> [ATR|filtering(ATRs,Field,Value)];
+	false ->     filtering(ATRs,Field,Value)
+    end.
+
+check_field_by_value([],_F,_V) ->
+    false;
+check_field_by_value([{field,Field,Value}|_],Field,Value) ->
+    true;
+check_field_by_value([_|Fields],Field,Value) ->
+    check_field_by_value(Fields,Field,Value).
+
+    

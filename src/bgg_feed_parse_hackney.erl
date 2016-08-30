@@ -65,7 +65,8 @@ request(State=#state{url=Url}) ->
                                                           Reason]),
 		  stream(State#state{ref=Ref});
 	      Other ->
-		  io:format("~p~n",[Other])
+		  io:format("~p~n",[Other]),
+		  {error, Other}
 	  after
 	      ?TIMEOUT ->
 		  {error, timeout}

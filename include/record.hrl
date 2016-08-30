@@ -2,6 +2,7 @@
 -define(BGG_HOST_NAME,"www.boardgamegeek.com").
 -define(BGG_RSS_FEED,"http://boardgamegeek.com/recentadditions/rss?domain=boardgame").
 -define(BGG_GAME_URL,"http://boardgamegeek.com/xmlapi/boardgame/").
+-define(HTTPS_PREFIX, "https://").
 -define(FREQ, 300000).
 
 -record(enclosure, {
@@ -110,3 +111,5 @@
 
 -record(airtable_record, {id, fields, createdTime}).
 -record(field,{name,value}).
+
+-record(picture, {id,url}). 

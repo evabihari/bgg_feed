@@ -34,6 +34,7 @@ create_field_list([]) ->
     [];
 create_field_list([FRecord|Tail]) when  is_record(FRecord,field)->
     ["\""++FRecord#field.name ++ "\": "++encode_value(FRecord#field.value)|create_field_list(Tail)];
+
 create_field_list([{Name,Value}|Tail]) ->
     ["\""++Name++"\": "++encode_value(Value)|create_field_list(Tail)]. 
 
@@ -41,6 +42,8 @@ encode_value(Value) when is_tuple(Value) ->
     "[{ " ++ comma_separated_string_list(create_field_list([Value])) ++ "}]";
 encode_value(Value) ->
     case lists:flatten(Value) of
+	[{"url",Url}|_] ->
+	   "[{ \"url\": \""++Url++"\"}]";
 	[V|_] when is_tuple(V) ->
 	    "[{ " ++ comma_separated_string_list(create_field_list(Value)) ++ "}]";
 	Value ->

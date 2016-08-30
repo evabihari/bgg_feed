@@ -21,6 +21,9 @@
 -export([print_titles/0]).
 -export([print_links/1, print_titles/1]).
 -export([to_timestamp/1]).
+-export([find_tupples/2]).
+-export([extractvalue/1]).
+
 
 -include("../include/record.hrl").
 
@@ -60,7 +63,8 @@ new_items_with_type(Type,Url) ->
 
 create_tables() ->
     create_entries_table(),
-    create_games_table().
+    create_games_table(),
+    create_pictures_table().
 
 do_logging_async(File, EtsAsList) ->
     file:delete(File),
@@ -167,6 +171,7 @@ new_game(Id, Url, EntriesRecord) ->
 	    Mechanics=find_tupples(Properties,boardgamemechanic),
 	    Family=find_tupples(Properties,boardgamefamily),
 	    Name=find_tupples(Properties,name),
+		%TODO: <name primary="true" sortindex="1">Egizia</name>
 	    YearPublished=find_tupples(Properties,yearpublished),
 	    MinPlayers=find_tupples(Properties,minplayers),
 	    MaxPlayers=find_tupples(Properties,maxplayers),
@@ -257,12 +262,22 @@ find_tupples([{Type,OID,Value}|List],Type)  ->
 find_tupples([_T|List],Type) ->
     find_tupples(List,Type).
 
+extractvalue({name,[{primary,"true"},_],Value})->
+    lists:flatten(Value);
+extractvalue({name,_,_Value}) ->
+    [];
 extractvalue({_Type,_OID,Value}) ->
     lists:flatten(Value);
 extractvalue([]) ->
     undefined;
-extractvalue([{Type,OID,Value}|_]) ->
-    extractvalue({Type,OID,Value}).
+extractvalue([{Type,OID,Value}|List]) ->
+    case extractvalue({Type,OID,Value}) of
+	[] ->
+	    extractvalue(List);
+	Other ->
+	    Other
+    end.
+
 extractvalues([]) ->
     [];
 extractvalues([{_Type,_OID,Value}|List]) ->
@@ -353,6 +368,20 @@ create_games_table() ->
 	Other ->
 	    error_logger:error_msg("games table creation failed , reason = ~p~n",[Other])
     end.
+
+create_pictures_table() ->
+    case mnesia:create_table(pictures,
+			     [{disc_copies,[node()]},
+			      {type, ordered_set},
+						%{index, [id]},
+			      {attributes, record_info(fields,picture)},
+			      {record_name,picture}]) of
+	{atomic, ok} -> ok;
+	{aborted,{already_exists,games}} ->
+	    error_logger:info_msg("pictures table already_exists~n");
+	Other ->
+	    error_logger:error_msg("pictures table creation failed , reason = ~p~n",[Other])
+    end.    
 
 write_header(_File,[]) ->
     ok;
