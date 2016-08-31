@@ -16,7 +16,8 @@
        {string,"types"},
        {string,"lang_dependence"},
        {string,"price"},
-       {string,"updated"}}).
+       {string,"updated"},
+       {string,"artists"}}).
 
 -export([encode/1,
 	 decode/1]).

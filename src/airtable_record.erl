@@ -168,4 +168,4 @@ start() ->
     io:format("~s~n", [Json]),
 						% {"id":"rec6OmOvoRd1IDu7A","fields":[{"name":"Name","value":"Economic"},{"name":"Games","value":"recN1OCI8WwO6HLaj"}],"createdTime":"2016-08-16T13:03:44.000Z"}
 
-    {ok,R1}=from_json(Json,airtable_record).
+    {ok,_R1}=from_json(Json,airtable_record).

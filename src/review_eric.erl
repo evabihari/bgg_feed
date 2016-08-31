@@ -175,12 +175,13 @@ maxvalue([H|T],_V) ->
 
 replace_eur(Text) ->
     Pattern=[226,130,172],
-    case string:rstr(Text,Pattern) of
+    T=case string:rstr(Text,Pattern) of
 	N when N>0 ->
 	    re:replace(Text, Pattern, "EUR ", [global, {return, list}]);
 	_ ->
 	    Text
-	end.
+	end,
+    re:replace(T,"\"","\'",[global,{return,list}]).
 
 remove_non_ascii(List) ->
     lists:filter(fun(X) -> X<128 end, List).

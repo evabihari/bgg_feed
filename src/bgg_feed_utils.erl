@@ -177,6 +177,7 @@ new_game(Id, Url, EntriesRecord) ->
 	    MaxPlayers=find_tupples(Properties,maxplayers),
 	    Publishers=find_tupples(Properties,boardgamepublisher),
 	    GameDesigners=find_tupples(Properties,boardgamedesigner),
+	    Artists=find_tupples(Properties,boardgameartist),
 	    Categories=find_tupples(Properties,boardgamecategory),
 	    Types=find_tupples(Properties,boardgamesubdomain),
 	    Lang_dependence=categorize(find_poll(Properties,language_dependence)),
@@ -197,15 +198,17 @@ new_game(Id, Url, EntriesRecord) ->
 		   categories=extractvalues(Categories),
 		   types=extractvalues(Types),
 		   lang_dependence=Lang_dependence,
-		   updated=get_date()
+		   updated=get_date(),
+		   artists=extractvalues(Artists)
 		  },
-%	    riak_handler:store(Id,Game),
-%	    mnesia:dirty_write(games,Game),
+	    riak_handler:store(Id,Game),
+	    mnesia:dirty_write(games,Game),
 	    Game;
 	{ok,ErrorCode ,Reason, _ClientRef} ->
-	    io:format("request towards ~p failed with ErrorCode=~p, ErrorReason=~p let's wait and try again~n",
+	    io:format("request towards ~p failed with ErrorCode=~p, ErrorReason=~p let's wait 
+                       and try again~n",
 		      [Url,ErrorCode,Reason]),
-	    timer:sleep(10000),
+	    timer:sleep(10500),
 	    new_game(Id, Url, EntriesRecord)
     end.
 

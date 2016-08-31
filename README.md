@@ -7,7 +7,6 @@ Next to this one this library contains small utilities to get prepared for Messe
 	 `essen2016.py` python script creates a 2nd sheet and pulls out all relevant data from BGG for these games -> this will help us creating our plan for the 2 days visit.
   
 - Eric Martin is creating a big list, where all relevant information is available; this list is read through and the booth numbers, games prices (list might be longer in the future) will be collected and stored into riak. This can be triggered by calling: `review_eric:read().`
-As his list for 2016 not avalibale yet, currently I'm using his 2015's list to get prepared.
 
 - There is an RSS field called `"http://boardgamegeek.com/recentadditions/rss?domain=boardgame"` an other utility willl check the new feeds and store new games as well. 
 
@@ -138,9 +137,9 @@ Record_id is internal Airtable record idenity (see at  airtable:get)
 
 9. Game can be added to the "Games" airtable, some of the
    corresponding links are created as well (Publishers, etc)
-   
-   TODO: Not all the fields are handled;
-	          Picture link to be extracted and added as attachment
-			  
+   			  
 			  `bgg_to_airtable:game_to_airtable(Id)`
+			  
+10. `essen2016.py` script now also storing information into Airtable
+(includingg adding attachments to teh games and creating links" 
 			  

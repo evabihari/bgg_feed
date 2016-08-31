@@ -103,6 +103,8 @@ def find_booth(Publishers):
             return "publisher name in unicode"
     
 def update_games_info(row,game):
+    i=0
+    try:
 #        wks_output.update_cell(row,1,game.name)
         wks_output.update_cell(row,2,game.id)
         wks_output.update_cell(row,3,','.join(game.publishers))
@@ -122,25 +124,35 @@ def update_games_info(row,game):
         wks_output.update_cell(row,17,find_price(game.id))
         wks_output.update_cell(row,18,find_booth(game.publishers))
         update_game_in_riak(game)
+    except gspread.exceptions.HTTPError:
+        print " wks_output.update_cell resulted in error try again"
+        i+=1
+        if (i<3):
+            update_games_info(row,game)
+    
         
 
 def copy_row(input,output,input_row,output_row):
-        start_cell=input.get_addr_int(input_row,1)
-        end_cell=input.get_addr_int(input_row,input.col_count)
-        range=start_cell+':'+end_cell
-        cell_list = input.range(range)
-        max_col=output.col_count
-        start_new_cell=output.get_addr_int(output_row,1)
-        end_new_cell=output.get_addr_int(output_row,output.col_count)
-        new_range=start_new_cell+':'+end_new_cell       
-        #copy cells to the output_sheet
-        new_cell_list= output.range(new_range)
-        i=0
-        for cell in cell_list:
-            if (i<max_col):
-                new_cell_list[i].value=cell_list[i].value
-            i+=1
-        output.update_cells(new_cell_list)
+        try:
+                start_cell=input.get_addr_int(input_row,1)
+                end_cell=input.get_addr_int(input_row,input.col_count)
+                range=start_cell+':'+end_cell
+                cell_list = input.range(range)
+                max_col=output.col_count
+                start_new_cell=output.get_addr_int(output_row,1)
+                end_new_cell=output.get_addr_int(output_row,output.col_count)
+                new_range=start_new_cell+':'+end_new_cell       
+                #copy cells to the output_sheet
+                new_cell_list= output.range(new_range)
+                i=0
+                for cell in cell_list:
+                    if (i<max_col):
+                        new_cell_list[i].value=cell_list[i].value
+                    i+=1
+                output.update_cells(new_cell_list)
+        except gspread.exceptions.HTTPError:
+                print " output.update_cells resulted in error try again"
+                copy_row(input,output,input_row,output_row)
 
 # main
 

@@ -64,8 +64,8 @@ request(AT, Method, Url, Params, Payload) ->
 		      AT#airtable.headers
 	      end,
     ReqUrl=AT#airtable.base_url++"/"++Url,
-    io:format("Url=~p, Method=~p, Headers=~p, Payload=~p~n, Params=~p  ~n",
-	      [Url,Method, Headers,Payload, Params]),
+    %% io:format("Url=~p, Method=~p, Headers=~p, Payload=~p~n, Params=~p  ~n",
+    %% 	      [Url,Method, Headers,Payload, Params]),
     case hackney:request(Method, ReqUrl, Headers, Payload, Params) of
 	{ok, 200, ResponseHeaders} ->
 	    {ok, 200, ResponseHeaders};
@@ -141,7 +141,7 @@ get_param(Name,[_|ParamList]) ->
 
 create(AT, Table_name, Data) ->
     Payload=create_payload(Data,false),
-    io:format("Payload=~p~n",[Payload]),
+    % io:format("Payload=~p~n",[Payload]),
     case request(AT, "POST", Table_name, [], Payload) of
 	{ok,Result} -> {ok,airtable_record:decode(Result)};
 	{error,Reason} ->

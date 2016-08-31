@@ -57,7 +57,8 @@
 	  types="",
 	  lang_dependence = "0",
 	  price = "undefined",
-	  updated = "0" %timestamp of the date last update has been done
+	  updated = "0", %timestamp of the date last update has been done
+	  artists=[]
 	}).
 
 -record(designer,

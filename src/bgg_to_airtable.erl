@@ -13,6 +13,7 @@
 -export([publisher_to_airtable/1]).
 -export([update_publishers/0]).
 -export([find_pictures/1]).
+-export([replace_8211/1]).
 
 
 -include("../include/record.hrl").
@@ -87,13 +88,14 @@ update_publishers([BR|List]) ->
 create_payload(game,AT,Games) when is_record(Games, game) ->
     Publishers =find_links(AT,"Publishers", Games#game.publishers),    
     Designers = find_links(AT,"Designers", Games#game.gamedesigners),
+    Artists = find_links(AT,"Artists", Games#game.artists),
     Mechanics = find_links(AT,"Mechanics", Games#game.mechanics),
     Families = find_links(AT,"Families", Games#game.family),
     Categories = find_links(AT,"Categories", Games#game.categories),
     Url = find_pictures(Games#game.id),
 
     PL= [{"id",Games#game.id},
-	 {"name",Games#game.name},
+	 {"name",replace_8211(Games#game.name)},
 	 {"yearpublished",Games#game.yearpublished}, 
 	 {"price",Games#game.price},
 	 {"minplayers",Games#game.minplayers},
@@ -105,7 +107,7 @@ create_payload(game,AT,Games) when is_record(Games, game) ->
 	add_attachment(Url)++
 	add_if_exist([{"publishers",Publishers},{"gamedesigners",Designers},
 		     {"mechanics",Mechanics},{"family",Families},
-		     {"categories",Categories}]),
+		     {"categories",Categories},{"artists",Artists}]),
 
 %% "attachments": [
 %%       {
@@ -141,7 +143,7 @@ find_links(AT,Table,Values) ->
 find_link_values(_AT,_Table,[]) ->
     [];
 find_link_values(AT,Table,[H|Tail]) ->
-    Value=string:strip(H),
+    Value=string:strip(escape_what_must(H)),
     case airtable:find(AT,Table,"Name",edoc_lib:escape_uri(Value)) of
 	{ok,[]} ->
 	    case linked_item_to_create(AT,Table,Value) of
@@ -176,8 +178,38 @@ add_if_exist([{Item,Value}|Tail]) ->
 
 escape_what_must(String) ->
     Strong=edoc_lib:escape_uri(String),
-    re:replace(Strong,"%20"," ",[global,{return,list}]).
+    replace_chars(Strong,[{"%20"," "},{"%c1%91","o"},{"%c3%a1","a"},{"%c3%a4","a"},{"%c3%b6","o"},
+			  {"%c3%96","O"},{"%c3%84","A"},{"%c3%bc","u"},{"%27","'"},
+			  {"%3f","?"},{"%28","("},{"%29",")"},{"%c3%89","E"},{"%c#%9f","S"},
+			  {"%26","&"},{"%2b","+"},{"%2f","/"},{"%3a",":"},
+			  {"%c3%a9","e"},{"%c3%b3","o"},{"%21","!"},
+			  {"%c1%82","l"},{"%c3%b8","o"},{"%c3%ab","e"},{"%22","'"},
+			  {"%c3%a7","c"}]).
+			  
+    %% V=replace_char(Strong,"%20"," "),
+    %% V1=replace_char(V,"%c1%91","o"), %
+    %% V2=replace_char(V1,"%c3%a1","a"),
+    %% V3=replace_char(V2,"%c3%a4","a"), %ä
+    %% V4=replace_char(V3,"%c3%b6","o"), %ö
+    %% V5=replace_char(V4,"%c3%96","O"), %Ä
+    %% V6=replace_char(V5,"%c3%84","A"), %Ö
+    %% V7=replace_char(V6,"%c3%bc","u"), %ü
+    %% V7.
 
+replace_chars(Input,[]) ->
+    Input;
+replace_chars(Input,[{InCh,OutCh}|CharList]) ->
+    replace_chars(replace_char(Input,InCh,OutCh),CharList).
+
+replace_char(Input,InCh,OutCh) ->
+    re:replace(Input,InCh,OutCh,[global,{return,list}]).
+
+replace_8211([])->
+    [];
+replace_8211([8211|T]) ->
+    [45|replace_8211(T)];
+replace_8211([H|T]) ->
+    [H|replace_8211(T)].
     
 remove_non_ascii(List) ->
     lists:filter(fun(X) -> X<128 end, List).
@@ -205,14 +237,19 @@ find_pictures(Id) ->
 		    {Xml,_}=xmerl_scan:string(binary_to_list(ResponseBody)),
 		    {boardgames,_,[_,Data|_]}=xmerl_lib:simplify_element(Xml),
 		    {boardgame,_,Properties}=Data,
-		    Image=bgg_feed_utils:find_tupples(Properties,image),
-	%%  [{image,[],
-		    %% ["//cf.geekdo-images.com/images/pic2786349.jpg"]}]
-		    Url1=string:concat(?HTTPS_PREFIX,
-				       string:sub_string(bgg_feed_utils:extractvalue(Image),3)),
-		    mnesia:dirty_write(pictures,#picture{id=Id,
-							 url=Url1}),
-		    Url1;
+		    case bgg_feed_utils:find_tupples(Properties,image) of
+			[] ->
+			    %No photo has been uploaded yet
+			    [];
+			Image ->
+			    %%  [{image,[],
+			    %% ["//cf.geekdo-images.com/images/pic2786349.jpg"]}]
+			    Url1=string:concat(?HTTPS_PREFIX,
+					       string:sub_string(bgg_feed_utils:extractvalue(Image),3)),
+			    mnesia:dirty_write(pictures,#picture{id=Id,
+								 url=Url1}),
+			    Url1
+		     end;
 		 _ ->
 		    []
 	    end;
