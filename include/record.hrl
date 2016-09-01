@@ -114,3 +114,13 @@
 -record(field,{name,value}).
 
 -record(picture, {id,url}). 
+-record(math_trade_item, {item_no,
+	                  id,
+			  title,
+			  publisher,
+			  language,
+			  attendance,
+			  min_player,
+			  interested="not decided",
+			  condition}).
+			  

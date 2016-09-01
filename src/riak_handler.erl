@@ -54,7 +54,9 @@ read(Type,Id) ->
 			game->
 			    decode_from_json(game,Json);
 			booth ->
-			    decode_from_json(booth,Json)
+			    decode_from_json(booth,Json);
+			math_trade_item ->
+			    decode_from_json(math_trade_item,Json)
                     end;
 		{error,notfound} ->
 		    []
@@ -68,6 +70,8 @@ encode_to_json(Data)  when is_record(Data,game) ->
     game:encode(Data);
 encode_to_json(Data)  when is_record(Data,booth) ->
     booth:encode(Data);
+encode_to_json(Data)  when is_record(Data,math_trade_item) ->
+    math_trade_item:encode(Data);
 encode_to_json(_Data) -> 
     {error, wrong_type}.
 
@@ -75,15 +79,22 @@ decode_from_json(game,Json) ->
     game:decode(Json);
 decode_from_json(booth,Json) ->
     booth:decode(Json);
+decode_from_json(math_trade_item,Json) ->
+    math_trade_item:decode(Json);
 decode_from_json(_,_) ->
     {error,wrong_type}.
     
 assign_bucket_to_record(Data) when is_record(Data,game) ->
     <<"bgg">>;
 assign_bucket_to_record(Data) when is_record(Data,booth)->
-    <<"booth">>.
+    <<"booth">>;
+assign_bucket_to_record(Data) when is_record(Data,math_trade_item)->
+    <<"match_trade">>.
 
 assign_bucket_to_type(game) ->
     <<"bgg">>;
 assign_bucket_to_type(booth)->
-    <<"booth">>.
+    <<"booth">>;
+assign_bucket_to_type(math_trade_item) ->
+    <<"match_trade">>.
+

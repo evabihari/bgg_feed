@@ -67,7 +67,24 @@ Write a parser which will pull information from this sheet might be interesting 
 8. try to find a solution making sure google sheet will be user friendly (format, etc)
 
 
-
+9. Write a helper to go through the Math trade list -
+   "https://boardgamegeek.com/xmlapi/geeklist/212782/essen-spiel-2016-no-shipping-math-trade"
+   Create a table which contains the games which were offered,
+   extracting the following information:
+   - item no
+   - BGG id
+   - Title:
+   - Publisher:
+   - Language(s):
+   - Attendance at SPIEL'16: (e.g.: Wed, Thu, Fri, Sat, Sun)
+   - min no of players
+   
+   To load the information into google sheet use:
+   `python math_trade.py`
+   To read the list from BGG and store to Mnesia&riak use
+   `math_trade:read()` in the Erlang shell
+   
+   
 Other
 ====
 Airtable (https://airtable.com) API support added.
