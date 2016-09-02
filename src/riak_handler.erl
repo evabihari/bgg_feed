@@ -89,12 +89,12 @@ assign_bucket_to_record(Data) when is_record(Data,game) ->
 assign_bucket_to_record(Data) when is_record(Data,booth)->
     <<"booth">>;
 assign_bucket_to_record(Data) when is_record(Data,math_trade_item)->
-    <<"match_trade">>.
+    <<"math_trade">>.
 
 assign_bucket_to_type(game) ->
     <<"bgg">>;
 assign_bucket_to_type(booth)->
     <<"booth">>;
 assign_bucket_to_type(math_trade_item) ->
-    <<"match_trade">>.
+    <<"math_trade">>.
 

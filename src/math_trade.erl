@@ -64,7 +64,7 @@ store_items([{<<"item">>,Properties,Body}|ItemList],Nr) ->
 	    end;
 	["thing",Other] ->
 	    % out_of_scope_for_now
-	    io:format("not a boardgame, rather ~p",[Other]);
+	    io:format("not a boardgame, rather ~p~n",[Other]);
 	_ -> io:format("will_be_find_later, Properties = ~p~n",[Properties]), 
 	    will_be_find_later
     end,
@@ -152,7 +152,11 @@ fill_other_item_info(MTI,_Properties,[{<<"body">>,_,[Body]}|_]) ->
     Language=find_info(Text,"Language:"),
     Condition=find_info(Text,"Condition:"),
     Attendance=find_info(Text,"Attendance"),
-    Min_player=ask_bgg(MTI#math_trade_item.id),
+    Min_player=case  MTI#math_trade_item.item_no of
+	N when N>1560 ->
+	    ask_bgg(MTI#math_trade_item.id);
+	_ -> "0"
+    end,
     MTI#math_trade_item{publisher=Publisher,
 			language=Language,
 			attendance=Attendance,

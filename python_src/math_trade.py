@@ -12,7 +12,7 @@ reload(sys)
 sys.setdefaultencoding("utf-8")
 
 myClient=riak.RiakClient(pb_port=8087)  # protocol can be 'pbc'/'http'
-mtiBucket = myClient.bucket('match_trade')
+mtiBucket = myClient.bucket('math_trade')
 
 def insert_data(key,row):
     if (mtiBucket.get(key).data != None):
@@ -64,15 +64,24 @@ for field in Fields:
 row=1
 cont = 1
 value='1'
-while (value!=''):
-    row+=1
-    cell=wks_output.cell(row,9)
-    value=cell.value
+values_list = wks_output.col_values(9)
+for value in values_list:
+    if (value!=''):
+        row+=1
 
 Keys=mtiBucket.get_keys()
 IntKeys=map(int,Keys)
 IntKeys.sort()
-del IntKeys[:row-1]
+
+cell=wks_output.cell(row-1,1)
+value=cell.value
+print value
+
+index=IntKeys.index(int(value)) + 1
+
+print index
+
+del IntKeys[:index]
 for key in IntKeys:
     print key
     new_row=insert_data(str(key),row)
