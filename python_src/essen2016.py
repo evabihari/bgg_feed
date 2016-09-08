@@ -104,25 +104,32 @@ def find_booth(Publishers):
     
 def update_games_info(row,game):
     i=0
-    try:
-#        wks_output.update_cell(row,1,game.name)
-        wks_output.update_cell(row,2,game.id)
-        wks_output.update_cell(row,3,','.join(game.publishers))
-        wks_output.update_cell(row,4,','.join(game.designers))
-        wks_output.update_cell(row,5,game.year)
-        wks_output.update_cell(row,6,','.join(game.artists))
-        wks_output.update_cell(row,7,convert_rank(game.ranks))
-        wks_output.update_cell(row,8,game.min_players)
-        wks_output.update_cell(row,9,game.max_players)
-        wks_output.update_cell(row,10,game.min_age)
-        wks_output.update_cell(row,11,','.join(game.mechanics))
-        wks_output.update_cell(row,12,game.playing_time)
-        wks_output.update_cell(row,13,','.join(game.families))
-        wks_output.update_cell(row,14,game.rating_average)
-        wks_output.update_cell(row,15,','.join(game.alternative_names))
-        wks_output.update_cell(row,16,expand(game.expands))
-        wks_output.update_cell(row,17,find_price(game.id))
-        wks_output.update_cell(row,18,find_booth(game.publishers))
+    Data=[game.name,
+          game.id,                    
+          ','.join(game.publishers),  
+          ','.join(game.designers),
+          game.year,
+          ','.join(game.artists),
+          convert_rank(game.ranks),
+          game.min_players,
+          game.max_players,
+          game.min_age,
+          ','.join(game.mechanics),
+          game.playing_time,
+          ','.join(game.families),
+          game.rating_average,
+          ','.join(game.alternative_names),
+          expand(game.expands),
+          find_price(game.id),
+          find_booth(game.publishers)]
+    rangeString=convert(wks_output,row,2,18)
+    cell_list=wks_output.range(rangeString)
+    j=1
+    for cell in cell_list:
+        cell.value=Data[j]
+        j+=1
+    try:           
+        wks_output.update_cells(cell_list)
         update_game_in_riak(game)
     except gspread.exceptions.HTTPError:
         print " wks_output.update_cell resulted in error try again"
@@ -130,7 +137,11 @@ def update_games_info(row,game):
         if (i<3):
             update_games_info(row,game)
     
-        
+
+def convert(sheet,row,startPos,stopPos):
+    startId=sheet.get_addr_int(row,startPos)
+    stopId=sheet.get_addr_int(row,stopPos)
+    return startId+':'+stopId
 
 def copy_row(input,output,input_row,output_row):
         try:
