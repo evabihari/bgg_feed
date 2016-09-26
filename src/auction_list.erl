@@ -186,7 +186,7 @@ find_number(Text,OrigValue) ->
    end.
 
 find(GameId) when is_integer(GameId) ->
-    case mnesia:dirty_match_object(auction_items, #auction_item{_ = '_', object_id=GameId}) of
+    case mnesia:dirty_match_object(auction_items, #auction_item{_ = '_', object_id=integer_to_list(GameId)}) of
 	[] ->
 	    not_found;
 	ObjList ->
@@ -282,9 +282,7 @@ remove_special_str(Text,[SubStr|StrList]) ->
 	   0 -> Text;
 	   N -> L=string:left(Text,N-1),
 		R=string:substr(Text,N+length(SubStr)),	
-		T2=L++R,
-		io:format("T2=~s~n",[T2]),
-		T2
+		L++R
        end,
     remove_special_str(T1,StrList).
     
