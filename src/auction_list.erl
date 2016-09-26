@@ -3,6 +3,7 @@
 -export([find/1]).
 -export([what_wins/1]).
 -export([traded_by/1]).
+-export([remove_special_str/2]).
 -include("../include/record.hrl").
 
 -define(ESSEN_NSA_2016,"https://boardgamegeek.com/xmlapi/geeklist/211885?comments=1").
@@ -16,7 +17,6 @@ read(Url) ->
     io:format(" hackney:request, Url=~p~n",[Url]),
     case hackney:request(get,Url,[],<<"?comments=1">>) of
 	{ok,200,_Head,Ref} ->
-	    io:format("_Head=~p~n",[_Head]),
 	    {ok,Body} = hackney:body(Ref),
 	    {ok,F} = file:open("auction2016.txt",[read,write,{encoding,utf8}]),
 	    file:write(F,Body),
@@ -84,15 +84,10 @@ store_items([{<<"item">>,Properties,BodyL}|ItemList],Nr) ->
 			     object_id=ObjId,
 			     object_name=Name,
 			     username=UserName},
-	    io:format("AI=~p~n",[AI]),
 	    Auction_item=fill_other_item_info(AI,
 					     Body,
 					     C),
-	    io:format("object_id=~p Name=~p~n",
-			      [Auction_item#auction_item.object_id,Auction_item#auction_item.object_name]),
-	    io:format("Auction item:=~p ~n",[Auction_item]),
-	    mnesia:dirty_write(auction_items,Auction_item),
-	    io:format("Auction_item=~p~n",[Auction_item]);
+	    mnesia:dirty_write(auction_items,Auction_item);
 	    %% riak_handler:store(integer_to_list(Nr),Auction_item); do not store to Riak yet
 
 	["thing",Other] ->
@@ -122,7 +117,10 @@ fill_other_item_info(AI,{<<"body">>,_,[Body]},CList) ->
 	     "" -> no;
 	     _ -> yes
     end,
-    Starting_bid=find_info(Text,"Starting bid:"),
+    Starting_bid=case find_info(Text,"Starting bid") of
+	    "" -> find_info(Text,"Soft reserve");
+	    S_Bid -> S_Bid
+    end,
     Bin=case find_info(Text,"BIN:") of
 	    "" -> find_info(Text,"Buyout price");
 	    Bin1 -> Bin1
@@ -150,14 +148,16 @@ fill_other_item_info(AI,{<<"body">>,_,[Body]},CList) ->
 
 find_info(String,Pattern) ->
     RegExp=string:concat(string:concat("^.*(",Pattern),").*$"),
-    case re:run(String,RegExp,[multiline,{capture,all,list},caseless]) of
+    Res=case re:run(String,RegExp,[multiline,{capture,all,list},caseless]) of
 	nomatch ->
 	    "";
 	{match,[Result|_Other]} ->
-	    re:replace(Result,Pattern,"");
+	    re:replace(Result,Pattern,"", [{return, list}, global]);
 	_ ->
 	    ""
-    end.
+	end,
+    remove_special_str(Res,[":","[b]","[/b]"]).
+
 
 check_comments(no_bid,"",[],_,_) ->
     {no_bid,"",[]};
@@ -166,7 +166,6 @@ check_comments(Actual_Bid,Winner,[],_,Comments) ->
 check_comments(Actual_Bid,Winner,[{<<"comment">> ,_Properties,[]}|C_List],{Item_no,Object_id},Comments) ->
     check_comments(Actual_Bid,Winner,C_List,{Item_no,Object_id},Comments);
 check_comments(Actual_Bid,Winner,[{<<"comment">> ,Properties,[Body|_]}|C_List],{Item_no,Object_id},Comments) ->
-    io:format("Comment=~p~n",[Properties]),
     Bid=find_number(binary_to_list(Body),Actual_Bid),
     UserName=checkType(Properties,[<<"username">>]),
     Winner1=case Bid of
@@ -241,7 +240,7 @@ summarize([Obj|ObjList]) ->
     print("Actual winner: ",Obj#auction_item.actual_winner),
     print("Presense at Essen: ",Obj#auction_item.presense_at_essen),
     print("Auction ends: ",Obj#auction_item.auction_ends),
-    io:format("------------ITEM END-----------~n~n~n",[]),
+    io:format("------------ITEM END-----------~n",[]),
     summarize(ObjList).
    
 print(Category,Text) when is_integer(Text) ->
@@ -270,5 +269,22 @@ summarize_wins([Obj|ObjList]) ->
     print("Actual winner: ",Obj#auction_item.actual_winner),
     print("Presense at Essen: ",Obj#auction_item.presense_at_essen),
     print("Auction ends: ",Obj#auction_item.auction_ends),
-    io:format("------------ITEM END-----------~n~n~n",[]),
+    io:format("------------ITEM END-----------~n",[]),
     summarize_wins(ObjList).
+
+remove_special_str(Text,List) when is_binary(Text) ->
+    remove_special_str(binary_to_list(Text),List);
+remove_special_str(Text,[]) ->
+    Text;
+remove_special_str(Text,[SubStr|StrList]) ->
+    Pos=string:str(Text,SubStr),
+    T1 = case Pos of
+	   0 -> Text;
+	   N -> L=string:left(Text,N-1),
+		R=string:substr(Text,N+length(SubStr)),	
+		T2=L++R,
+		io:format("T2=~s~n",[T2]),
+		T2
+       end,
+    remove_special_str(T1,StrList).
+    
