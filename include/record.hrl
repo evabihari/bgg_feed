@@ -124,3 +124,31 @@
 			  interested="not decided",
 			  condition}).
 			  
+-record(auction_item, {item_no,
+		       id,
+		       object_type,
+		       sub_type,
+		       object_id,
+		       object_name,
+		       username,
+		       body,
+		       sold=false,
+		       condition="",
+		       language="",
+		       lang_dep="",
+		       version="",
+		       starting_bid,
+		       bin=no_bin,
+		       actual_bid,
+		       actual_winner="",
+		       presense_at_essen="",
+		       auction_ends="",
+		       comments=[]}).
+		       
+-record(comment, {connected_item_no,
+		  connected_object_id,
+		  username,
+		  text,
+		  bid}).
+		       
+		       
