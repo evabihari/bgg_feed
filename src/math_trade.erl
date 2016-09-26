@@ -2,7 +2,7 @@
 -export([read/1, read/0]).
 -include("../include/record.hrl").
 
--define(ESSEN_MT_2016,"https://boardgamegeek.com/xmlapi/geeklist/212782/essen-spiel-2016-no-shipping-math-trade").
+-define(ESSEN_MT_2016,"https://boardgamegeek.com/xmlapi/geeklist/214426/essen-spiel-2016-no-shipping-leftovers-math-trade").
 read() ->
     read(?ESSEN_MT_2016).
 read(Url) ->
@@ -127,7 +127,8 @@ ask_bgg(Id) ->
 	    ask_bgg(Id);
 	{error,Reason} ->
 	    io:format("httpc:request returned error with Reason: ~p, url: ~p~n ",
-		      [Reason,Url]);
+		      [Reason,Url]),
+	    "0";
 	{ok, 200,_Header,ClientRef} ->
 	    {ok,ResponseBody}=hackney:body(ClientRef),
 	    {Xml,_}=xmerl_scan:string(binary_to_list(ResponseBody)),
@@ -153,7 +154,7 @@ fill_other_item_info(MTI,_Properties,[{<<"body">>,_,[Body]}|_]) ->
     Condition=find_info(Text,"Condition:"),
     Attendance=find_info(Text,"Attendance"),
     Min_player=case  MTI#math_trade_item.item_no of
-	N when N>1560 ->
+	N when N>0 ->
 	    ask_bgg(MTI#math_trade_item.id);
 	_ -> "0"
     end,

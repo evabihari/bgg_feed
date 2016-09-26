@@ -49,7 +49,7 @@ credentials = ServiceAccountCredentials.from_json_keyfile_name('GetBGGInfo-a1f86
 gc = gspread.authorize(credentials)
 sh = gc.open("Essen 2016")
 wks_input = sh.sheet1
-sheetName="mathTrade"
+sheetName="no-shipping-leftovers-math-trade"
 try:
     sh.add_worksheet(title=sheetName,rows="2500", cols="25")
 except gspread.exceptions.RequestError:
@@ -77,8 +77,12 @@ cell=wks_output.cell(row-1,1)
 value=cell.value
 print value
 
-index=IntKeys.index(int(value)) + 1
+#index=0
 
+#if type(value) is int:
+#    index=IntKeys.index(int(value)) + 1
+
+index=IntKeys.index(int(value)) + 1
 print index
 
 del IntKeys[:index]

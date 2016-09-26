@@ -62,7 +62,7 @@ string_list(ISL) ->
 decode(Term) when is_binary(Term) ->
     %% ex. {"id":"recs7y11zncGIEADY","fields":{"Publisher_id":4302,"Name":"TestPubl","Booth":"valahol","Games":["recN1OCI8WwO6HLaj"]},
     %% "createdTime":"2016-08-18T11:16:14.481Z"}
-    %% problem: fileds content depends on the table
+    %% problem: fields content depends on the table
     Decoded = jsx:decode(Term),
     decode(Decoded);
 
