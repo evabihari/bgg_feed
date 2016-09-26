@@ -113,10 +113,7 @@ fill_other_item_info(AI,{<<"body">>,_,[Body]},CList) ->
     Language=find_info(Text,"Language:"),
     Lang_dep=find_info(Text,"Language dependency:"),
     Version=find_info(Text,"Version:"),
-    Sold=case find_info(Text,"Sold:") of
-	     "" -> no;
-	     _ -> yes
-    end,
+    
     Starting_bid=case find_info(Text,"Starting bid") of
 	    "" -> find_info(Text,"Soft reserve");
 	    S_Bid -> S_Bid
@@ -132,6 +129,10 @@ fill_other_item_info(AI,{<<"body">>,_,[Body]},CList) ->
 				Info
 		 end,
     {Actual_bid,Winner,Comments} = check_comments(no_bid,"",CList,{AI#auction_item.item_no,AI#auction_item.object_id},[]),
+    Sold=case find_info(Text,"Sold:") of
+	     "" -> check_bid(Bin,Actual_bid);
+	     _ -> yes
+    end,
     AI#auction_item{condition=Condition,    
 		    language=Language,
 		    lang_dep=Lang_dep,
@@ -166,7 +167,7 @@ check_comments(Actual_Bid,Winner,[],_,Comments) ->
 check_comments(Actual_Bid,Winner,[{<<"comment">> ,_Properties,[]}|C_List],{Item_no,Object_id},Comments) ->
     check_comments(Actual_Bid,Winner,C_List,{Item_no,Object_id},Comments);
 check_comments(Actual_Bid,Winner,[{<<"comment">> ,Properties,[Body|_]}|C_List],{Item_no,Object_id},Comments) ->
-    Bid=find_number(binary_to_list(Body),Actual_Bid),
+    Bid=find_number_or_bin(binary_to_list(Body),Actual_Bid),
     UserName=checkType(Properties,[<<"username">>]),
     Winner1=case Bid of
 	no_bid -> Winner;
@@ -177,12 +178,18 @@ check_comments(Actual_Bid,Winner,[{<<"comment">> ,Properties,[Body|_]}|C_List],{
 											  username=UserName,
 											  bid=Bid}])).
 
-find_number(Text,OrigValue) ->
+find_number_or_bin(Text,OrigValue) ->
     case re:run(Text,"\\d+",[{capture, all, list}]) of
 	{match,[Bid|_]} ->
 	    Bid;
 	nomatch ->
-	    OrigValue
+	    UText=string:to_upper(Text),
+	    case string:str(UText,"BIN") of
+		0 ->
+		    OrigValue;
+		_ ->
+		    bin
+	    end
    end.
 
 find(GameId) when is_integer(GameId) ->
@@ -224,17 +231,17 @@ summarize([]) ->
     "";
 summarize([Obj|ObjList]) ->
     io:format("------------ITEM FOUND-----------~n",[]),
-    print("item_no: ",Obj#auction_item.item_no),
-    print("id: ",Obj#auction_item.id),
-    print("game id: ",Obj#auction_item.object_id),
-    print("game name:",Obj#auction_item.object_name),
-    print("owned by:",Obj#auction_item.username),
-    print("sold: ",Obj#auction_item.sold),
-    print("condition: ",Obj#auction_item.condition),
-    print("language: ",Obj#auction_item.language),
-    print("lang_dep: ",Obj#auction_item.lang_dep),
-    print("version: ",Obj#auction_item.version),
-    print("starting_bid: ",Obj#auction_item.starting_bid),
+    print("Item_no: ",Obj#auction_item.item_no),
+    print("Id: ",Obj#auction_item.id),
+    print("Game id: ",Obj#auction_item.object_id),
+    print("Game name:",Obj#auction_item.object_name),
+    print("Owned by:",Obj#auction_item.username),
+    print("Sold: ",Obj#auction_item.sold),
+    print("Condition: ",Obj#auction_item.condition),
+    print("Language: ",Obj#auction_item.language),
+    print("Lang_dep: ",Obj#auction_item.lang_dep),
+    print("Version: ",Obj#auction_item.version),
+    print("Starting_bid: ",Obj#auction_item.starting_bid),
     print("BIN: ",Obj#auction_item.bin),
     print("Actual bid: ",Obj#auction_item.actual_bid),
     print("Actual winner: ",Obj#auction_item.actual_winner),
@@ -258,12 +265,12 @@ summarize_wins([]) ->
     "";
 summarize_wins([Obj|ObjList]) ->
     io:format("------------ITEM FOUND-----------~n",[]),
-    print("item_no: ",Obj#auction_item.item_no),
-    print("game name:",Obj#auction_item.object_name),
-    print("owned by:",Obj#auction_item.username),
-    print("condition: ",Obj#auction_item.condition),
-    print("language: ",Obj#auction_item.language),
-    print("lang_dep: ",Obj#auction_item.lang_dep),
+    print("Item_no: ",Obj#auction_item.item_no),
+    print("Game name:",Obj#auction_item.object_name),
+    print("Owned by:",Obj#auction_item.username),
+    print("Condition: ",Obj#auction_item.condition),
+    print("Language: ",Obj#auction_item.language),
+    print("Lang_dep: ",Obj#auction_item.lang_dep),
     print("BIN: ",Obj#auction_item.bin),
     print("Actual bid: ",Obj#auction_item.actual_bid),
     print("Actual winner: ",Obj#auction_item.actual_winner),
@@ -285,4 +292,13 @@ remove_special_str(Text,[SubStr|StrList]) ->
 		L++R
        end,
     remove_special_str(T1,StrList).
+    
+check_bid(_Bin,no_bid) -> false;
+check_bid("",_Actual_bid) -> false;
+check_bid(_Bin,bin) -> true; 
+check_bid(Bin,Bin) -> true; 
+check_bid(Bin,Bid) ->
+    BinN=find_number_or_bin(Bin,Bin),
+    BidN=find_number_or_bin(Bid,Bid),
+    BinN==BidN. 
     
