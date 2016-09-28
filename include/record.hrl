@@ -121,6 +121,7 @@
 			  language,
 			  attendance,
 			  min_player,
+			  max_player,
 			  interested="not decided",
 			  condition}).
 			  

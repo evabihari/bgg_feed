@@ -10,6 +10,7 @@
        {string,"language"},
        {string,"attendance"},
        {string,"min_player"},
+       {string,"max_player"},
        {string,"interested"},
        {string,"condition"}
        }).

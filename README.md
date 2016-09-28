@@ -83,7 +83,16 @@ Write a parser which will pull information from this sheet might be interesting 
    `python math_trade.py`
    To read the list from BGG and store to Mnesia&riak use
    `math_trade:read()` in the Erlang shell
-   
+   Now this function has been modified a bit:
+   - performance improvement: The game is added to teh games database
+     as well, next time we don't read to ask BGG for data just read
+     from Mnesia
+	 - after the list is read through it will be dumped to a CSV file
+       which is then copied to my Public Dropbox directory, so it
+       public and available at: 
+	   <https://dl.dropboxusercontent.com/u/4001011/LeftOvers_LeftOver.csv>
+   At this moment `Essen2016 no shipping leftovers leftovers math trade`
+       list is parsed.
    
 Other
 ====

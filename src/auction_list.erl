@@ -3,7 +3,7 @@
 -export([find/1]).
 -export([what_wins/1]).
 -export([traded_by/1]).
--export([remove_special_str/2]).
+% -export([remove_special_str/2]).
 -include("../include/record.hrl").
 
 -define(ESSEN_NSA_2016,"https://boardgamegeek.com/xmlapi/geeklist/211885?comments=1").
@@ -53,8 +53,9 @@ create_auction_table()->
                                record_info(fields, auction_item)},
                               {record_name,  auction_item}]) of
         {atomic,ok} -> ok;
-        {aborted,{already_exists,daily_values}} -> 
-            error_logger:info_msg("auction_items table already_exists");
+        {aborted,{already_exists,auction_items}} -> 
+	    mnesia:delete_table(auction_items),
+	    create_auction_table();
         Other ->
             error_logger:error_msg("auction_items table creation failed , 
                                     reason = ~p~n",[Other])
@@ -157,7 +158,7 @@ find_info(String,Pattern) ->
 	_ ->
 	    ""
 	end,
-    remove_special_str(Res,[":","[b]","[/b]"]).
+    remove_special_str(Res,[":","[b]","[/b]","\r"]).
 
 
 check_comments(no_bid,"",[],_,_) ->

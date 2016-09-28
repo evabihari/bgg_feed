@@ -23,6 +23,7 @@
 -export([to_timestamp/1]).
 -export([find_tupples/2]).
 -export([extractvalue/1]).
+-export([dump_to_file/2]).
 
 
 -include("../include/record.hrl").
@@ -66,9 +67,18 @@ create_tables() ->
     create_games_table(),
     create_pictures_table().
 
+do_logging_async(_File,[]) ->
+    ok;
 do_logging_async(File, EtsAsList) ->
+    [First|_]=EtsAsList,
+    [Type|_]=tuple_to_list(First),
     file:delete(File),
-    Fields=record_info(fields,game),
+    Fields=case Type of
+	games -> record_info(fields,game);
+	math_trade_item -> record_info(fields,math_trade_item);
+	booth -> record_info(fields,booth);
+	auction_item -> record_info(fields,auction_item)
+    end,
     write_header(File,Fields),
     F = fun(Record) ->
 		write_record(File,Record,length(Fields))
@@ -389,18 +399,18 @@ create_pictures_table() ->
 write_header(_File,[]) ->
     ok;
 write_header(File,[H|T]) ->
-    file:write_file(File,io_lib:format("~90.90p ",[H]),[append]),
+    file:write_file(File,io_lib:format("~90.90p ",[H]),[append,{encoding,utf8}]),
     case T of
-        [] ->  file:write_file(File,io_lib:format("~n ",[]),[append]);
-        _ ->  file:write_file(File,io_lib:format("; ",[]),[append]),
+        [] ->  file:write_file(File,io_lib:format("~n ",[]),[append,{encoding,utf8}]);
+        _ ->  file:write_file(File,io_lib:format("; ",[]),[append,{encoding,utf8}]),
               write_header(File, T)
     end.
 
 write_record(File,Record,Size) ->
     write_field(File,Record,2,Size).
 
-write_field(File,Record,Size,Size) ->
-    Value=erlang:element(Size,Record),
+write_field(File,Record,N,Size) when N==Size+1 ->
+    Value=erlang:element(N,Record),
     write_element(File,Value),
     file:write_file(File,io_lib:format("~n",[]),[append]);
 write_field(File,Record,N,Size) ->
@@ -411,10 +421,21 @@ write_field(File,Record,N,Size) ->
 
 write_element(File,Element) ->
     Value=case string:to_integer(Element) of
+	      {error,not_a_list} ->
+		  Element;
 	      {V,[]} -> V;
 	      _ -> lists:flatten(Element)
 	  end,
-    file:write_file(File,io_lib:format("~p",[Value]),[append]).
+    Format = case {is_string(Value),io_lib:printable_list(Value)} of 
+		 {true,true} -> "~s";
+		 {true,false} -> "~s";
+		 {false,_} -> "~p"
+	     end,
+    file:write_file(File,io_lib:format(Format,[Value]),[append,{encoding,utf8}]).
+
+is_string([]) -> true;
+is_string([X|T]) -> is_integer(X) andalso X>=0 andalso is_string(T);
+is_string(_) -> false.
 
 add_price(Game_id,PriceStr) when is_integer(Game_id)->
     add_price(integer_to_list(Game_id),PriceStr);
@@ -512,3 +533,31 @@ print_titles(Url) ->
 print_links(Url) ->
     print(links(Url)).
 
+dump_to_file(TableName,FileName) ->
+    %Dump a mnesia table to a CSV file
+    Table=ets:tab2list(TableName),
+    do_logging_async(FileName, Table). 
+
+
+%% do_logging_async1(File, EtsAsList) ->
+%%     F = fun({Key, Value}) -> 
+%%         file:write_file(File, [atom_to_list(Key) ++ ","],[append,{encoding,utf8}]),
+%%         write_value(File,lists:flatten(Value)),
+%%         file:write_file(File, ["\n"],[append,{encoding,utf8}]) 
+%%     end,
+%%     lists:foreach(F,EtsAsList).
+
+
+
+
+%% write_value(_File, []) -> ok;
+%% write_value(File, [H|T]) ->
+%%     case is_integer(H) of
+%%         true -> file:write_file(File, [integer_to_list(H)],[append,{encoding,utf8}]);
+%%         false -> file:write_file(File, [atom_to_list(H)],[append,{encoding,utf8}])
+%%     end,
+%%     case T=:=[] of
+%%         true -> ok;
+%%         false -> file:write_file(File, [","],[append])
+%%     end,
+%%     write_value(File,T).
