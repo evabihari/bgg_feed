@@ -59,7 +59,7 @@ Write a parser which will pull information from this sheet might be interesting 
    -DONE
    Idea:
    1. We should URL encode the Publisher name and use that one for
-   key! - not working special chars remained in teh string + url
+   key! - not working special chars remained in the string + url
    encoding resulted different string in Python and Erlang
    2. Remove non_asscii characters from the name when creating the key
       -> this is now working! Problem can be if a Publisher name will
@@ -84,7 +84,7 @@ Write a parser which will pull information from this sheet might be interesting 
    To read the list from BGG and store to Mnesia&riak use
    `math_trade:read()` in the Erlang shell
    Now this function has been modified a bit:
-   - performance improvement: The game is added to teh games database
+   - performance improvement: The game is added to the games database
      as well, next time we don't read to ask BGG for data just read
      from Mnesia
 	 - after the list is read through it will be dumped to a CSV file
@@ -104,7 +104,7 @@ Basic usage:
 `hackney:start().
  AT=airtable:init(Base_id, API_key)`
  
- where `Base_id` is the ID connected to teh Airtable table you want to
+ where `Base_id` is the ID connected to the Airtable table you want to
  modify
  `API_key` is the key AIrtable provided towards you - please keep it
  for your personal usage!
@@ -167,5 +167,150 @@ Record_id is internal Airtable record idenity (see at  airtable:get)
 			  `bgg_to_airtable:game_to_airtable(Id)`
 			  
 10. `essen2016.py` script now also storing information into Airtable
-(includingg adding attachments to teh games and creating links" 
+(includingg adding attachments to the games and creating links" 
 			  
+## Functionality ##
+
+### BGG MathTrade ###
+1. `math_trade:read().`
+`?ESSEN_MT_2016` URL parsed, offered items are stored into
+`math_trade_items` table.
+Database is dumped to `?OUT` file (actual default is
+LeftOvers_LeftOver.csv) and copied to `?DROPBOX_PUBLIC` directory.
+
+2. `math_trade:dump_to_file(<FILE>`
+Offered items database dumped to the given file
+
+Example:
+
+`item_no |	 id |	 title |	 publisher |	 language |
+attendance |	 min_player |	 max_player |	 interested |
+condition |
+
+1	|159141|	 Code of Nine	|  Z-Man Games (2015)	|  English	|
+Thursday, Friday, Saturday, Sunday |	3	|4	| not decided	|  new
+and still in shrink. No damages, pristine condition.`
+
+
+### BGG Auction list ###
+1.` auction_list:read().`
+
+`?ESSEN_NSA_2016` URL parsed, items are stored into `auction_items`
+table.
+
+2. `auction_list:find(Game).`
+
+Where Games is either GameId (integer) or GameName (string).
+Finds and lists items with the given ID/Name on the auction list;
+Example:
+`
+153> auction_list:find("Argonauts").
+------------ITEM FOUND-----------
+Item_no:         723
+Id:              4805073
+Game id:         171356
+Game name:       Argonauts
+Owned by:        rahdo
+Sold:            false
+Condition:        Like new
+Language:
+Lang_dep:
+Version:
+Starting_bid:    Starting Bid â¬15
+BIN:
+Actual bid:      20
+Actual winner:   MithrasSWE
+Pres. & Essen:    Thursday to Sunday
+Auction ends:     October 1st, random time
+------------ITEM END-----------
+------------ITEM FOUND-----------
+Item_no:         2219
+Id:              4850678
+Game id:         171356
+Game name:       Argonauts
+Owned by:        Vagos
+Sold:            false
+Condition:        New in shrink
+Language:         English
+Lang_dep:
+Version:
+Starting_bid:     14â¬
+BIN:              38â¬
+Actual bid:      15
+Actual winner:   A skinned math nerd
+Pres. & Essen:
+Auction ends:     September 30th at random time
+------------ITEM END----------- 
+`
+
+3. `auction_list:what_wins(User)`
+Where User is the string or atom of the userName.
+
+Lists these Items where the User is the actual winner of the bid.
+
+Example:
+`
+auction_list:what_wins("A skinned math nerd").
+------------ITEM FOUND-----------
+Item_no:         2219
+Game name:       Argonauts
+Owned by:        Vagos
+Condition:        New in shrink
+Language:         English
+Lang_dep:
+BIN:              38â¬
+Actual bid:      15
+Actual winner:   A skinned math nerd
+Pres. & Essen:
+Auction ends:     September 30th at random time
+------------ITEM END-----------
+
+`
+4. `auction_list:traded_by(User).`
+Where User is the string or atom of the userName.
+
+Lists these items which were added by the user to the list.
+Example:
+
+`
+150> auction_list:traded_by(bithalver).
+------------ITEM FOUND-----------
+Item_no:         77
+Id:              4770539
+Game id:         165023
+Game name:       Concordia: Britannia & Germania
+Owned by:        bithalver
+Sold:            true
+Condition:
+Language:
+Lang_dep:
+Version:
+Starting_bid:     â¬8
+BIN:              â¬10
+Actual bid:      10
+Actual winner:   Laner
+Pres. & Essen:    whole Thursday and Friday
+Auction ends:     October 2nd, random time
+------------ITEM END-----------
+------------ITEM FOUND-----------
+Item_no:         79
+Id:              4770542
+Game id:         134631
+Game name:       Crazy Lab
+Owned by:        bithalver
+Sold:            false
+Condition:
+Language:
+Lang_dep:
+Version:
+Starting_bid:     â¬5
+BIN:              â¬8
+Actual bid:      no_bid
+Actual winner:
+Pres. & Essen:    whole Thursday and Friday
+Auction ends:     October 2nd, random time
+------------ITEM END-----------
+
+...
+
+`
