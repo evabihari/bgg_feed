@@ -93,7 +93,7 @@ Write a parser which will pull information from this sheet might be interesting 
 	   <https://dl.dropboxusercontent.com/u/4001011/LeftOvers_LeftOver.csv>
    At this moment `Essen2016 no shipping leftovers leftovers math trade`
        list is parsed.
-   
+
 Other
 ====
 Airtable (https://airtable.com) API support added.

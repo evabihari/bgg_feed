@@ -73,15 +73,15 @@ do_logging_async(File, EtsAsList) ->
     [First|_]=EtsAsList,
     [Type|_]=tuple_to_list(First),
     file:delete(File),
-    Fields=case Type of
-	games -> record_info(fields,game);
-	math_trade_item -> record_info(fields,math_trade_item);
-	booth -> record_info(fields,booth);
-	auction_item -> record_info(fields,auction_item)
+    {Fields,Skip}=case Type of
+	games -> {record_info(fields,game),0};
+	math_trade_item -> {record_info(fields,math_trade_item),0};
+	booth -> {record_info(fields,booth),0};
+	auction_item -> {lists:delete(body,record_info(fields,auction_item)),#auction_item.body}
     end,
     write_header(File,Fields),
     F = fun(Record) ->
-		write_record(File,Record,length(Fields))
+		write_record(File,Record,length(Fields),Skip)
 	end,
     lists:foreach(F,EtsAsList).
 
@@ -406,18 +406,20 @@ write_header(File,[H|T]) ->
               write_header(File, T)
     end.
 
-write_record(File,Record,Size) ->
-    write_field(File,Record,2,Size).
+write_record(File,Record,Size,Skip) ->
+    write_field(File,Record,2,Size,Skip).
 
-write_field(File,Record,N,Size) when N==Size+1 ->
+write_field(File,Record,N,Size,_Skip) when N==Size+1 ->
     Value=erlang:element(N,Record),
     write_element(File,Value),
     file:write_file(File,io_lib:format("~n",[]),[append]);
-write_field(File,Record,N,Size) ->
+write_field(File,Record,Skip,Size,Skip) ->
+    write_field(File,Record,Skip+1,Size,Skip);
+write_field(File,Record,N,Size,Skip) ->
     Value=erlang:element(N,Record),
     write_element(File,Value),
     file:write_file(File,io_lib:format("; ",[]),[append]),
-    write_field(File,Record,N+1,Size).
+    write_field(File,Record,N+1,Size,Skip).
 
 write_element(File,Element) ->
     Value=case string:to_integer(Element) of
@@ -533,31 +535,12 @@ print_titles(Url) ->
 print_links(Url) ->
     print(links(Url)).
 
-dump_to_file(TableName,FileName) ->
+dump_to_file(TableName,FileName) when is_atom(TableName) -> 
     %Dump a mnesia table to a CSV file
     Table=ets:tab2list(TableName),
-    do_logging_async(FileName, Table). 
+    do_logging_async(FileName, Table); 
+dump_to_file(ObjectList,FileName) ->
+    do_logging_async(FileName, ObjectList).
+    
 
 
-%% do_logging_async1(File, EtsAsList) ->
-%%     F = fun({Key, Value}) -> 
-%%         file:write_file(File, [atom_to_list(Key) ++ ","],[append,{encoding,utf8}]),
-%%         write_value(File,lists:flatten(Value)),
-%%         file:write_file(File, ["\n"],[append,{encoding,utf8}]) 
-%%     end,
-%%     lists:foreach(F,EtsAsList).
-
-
-
-
-%% write_value(_File, []) -> ok;
-%% write_value(File, [H|T]) ->
-%%     case is_integer(H) of
-%%         true -> file:write_file(File, [integer_to_list(H)],[append,{encoding,utf8}]);
-%%         false -> file:write_file(File, [atom_to_list(H)],[append,{encoding,utf8}])
-%%     end,
-%%     case T=:=[] of
-%%         true -> ok;
-%%         false -> file:write_file(File, [","],[append])
-%%     end,
-%%     write_value(File,T).

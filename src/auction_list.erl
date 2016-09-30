@@ -3,10 +3,25 @@
 -export([find/1]).
 -export([what_wins/1]).
 -export([traded_by/1]).
+-export([items_without_bid/0,items_without_bid/1]).
+
 % -export([remove_special_str/2]).
 -include("../include/record.hrl").
 
 -define(ESSEN_NSA_2016,"https://boardgamegeek.com/xmlapi/geeklist/211885?comments=1").
+
+-define(STRANGE_CHR_REPLACEMENTS,[{[226,130,172]," EUR"},{[195,175],"i"}, {[195,188],"ü"},{[195,132],"A"},
+				  {[195,136],"E"},{[195,32],"a "},{[195,164],"a"},{[195,169],"é"},{[195,182],"ö"},
+				  {[195,150],"O"}]).
+-define(OUT,"Auctions.csv").
+-define(DROPBOX_PUBLIC,"~/Dropbox/Public/").
+
+
+% {[226,128,156],""},{[226,128,157],""},{"[/size]",""}
+% {[226,128,153],""},{[226,128,147],""}
+
+-define(REMOVE_STRANGE_CHARS,[":","[b]","[/b]","\r","[u]","[/u]","[B]","[/B]",";",[239,187,191],[195,162],[194,381],[194,8364]] ).
+
 read() ->
     read(?ESSEN_NSA_2016).
 read(Url) ->
@@ -27,19 +42,22 @@ read(Url) ->
 	    ItemList=mochiweb_xpath:execute(Path,Struct),
 	    {ok,F3} = file:open("items.txt",[read,write,{encoding,utf8}]),
 	    file:write(F3,io_lib:print(ItemList)),
-	    store_items(ItemList,1);
+	    store_items(ItemList,1),
+            bgg_feed_utils:dump_to_file(auction_items,?OUT),
+	    Cmd="cp "++ ?OUT ++ " "++ ?DROPBOX_PUBLIC ++ ".",
+	    os:cmd(Cmd);
 	{ok, 202,_Head,_Ref} ->
 	    io:format("request accepted, wait a bit,",[]),
 	    timer:sleep(10000),
 	    read(Url);
 	{error, closed} ->
 	    %let'ss try agin ?
-	    io:format("request failed, let's try again~n",[]),
+	    io:format("request failed, let's try again ~p~n",[{error, closed}]),
 	    timer:sleep(10000),
 	    read(Url);	 
 	{error, timeout} ->
 	    %let'ss try agin ?
-	    io:format("request failed, let's try again~n",[]),
+	    io:format("request failed, let's try again ~p~n",[{error, timeout}]),
 	    timer:sleep(10000),
 	    read(Url);	    
 	Result -> io:format("Http request failed, Result=~p~n",[Result])
@@ -54,8 +72,8 @@ create_auction_table()->
                               {record_name,  auction_item}]) of
         {atomic,ok} -> ok;
         {aborted,{already_exists,auction_items}} -> 
-	    mnesia:delete_table(auction_items),
-	    create_auction_table();
+            error_logger:error_msg("auction_items table creation failed , 
+                                    reason = ~p~n",[{already_exists,auction_items}]);
         Other ->
             error_logger:error_msg("auction_items table creation failed , 
                                     reason = ~p~n",[Other])
@@ -63,9 +81,6 @@ create_auction_table()->
 
 store_items([],_Nr) ->
     [];
-%% store_items(_, Nr) when Nr>14 ->
-%%     % just while test will successed
-%%     ok;
 store_items([{<<"item">>,Properties,BodyL}|ItemList],Nr) ->
     case checkType(Properties, [<<"objecttype">>,<<"subtype">>]) of
 	["thing","boardgame"] ->
@@ -115,25 +130,40 @@ fill_other_item_info(AI,{<<"body">>,_,[Body]},CList) ->
     Lang_dep=find_info(Text,"Language dependency:"),
     Version=find_info(Text,"Version:"),
     
-    Starting_bid=case find_info(Text,"Starting bid") of
-	    "" -> find_info(Text,"Soft reserve");
-	    S_Bid -> S_Bid
-    end,
-    Bin=case find_info(Text,"BIN:") of
-	    "" -> find_info(Text,"Buyout price");
-	    Bin1 -> Bin1
-    end,
-    Presense=find_info(Text,"Presence at Essen:"),
+    %% Starting_bid1=case find_info(Text,"Starting bid") of
+    %% 	    "" -> find_info(Text,"Soft reserve");
+    %% 	    S_Bid -> S_Bid
+    %% end,
+    Starting_bid1=remove_special_str(find_info_opts(Text,["Starting bid","Soft reserve"]),["Starting bid","Soft reserve","Starting Bid",
+											  "COLOR=#FF0000","[size=10]","[/size]","[b]","[/b]",
+											  "[size=14]"]),
+    Starting_bid=replace_strange_chars(Starting_bid1,?STRANGE_CHR_REPLACEMENTS),
+    %% Bin2=case find_info(Text,"BIN:") of
+    %% 	    "" -> find_info(Text,"Buyout price");
+    %% 	    Bin1 -> Bin1
+    %% end,
+    Bin1=remove_special_str(find_info_opts(Text,["BIN","Buyout price"]),["[b]","[/b]","Bin","[size=10]","[/size]"]),
+    Bin=replace_strange_chars(Bin1,?STRANGE_CHR_REPLACEMENTS),
+    Presense1=find_info_opts(Text,["Attendance","At Spiel","att. Spiel","Attending","Presence in Essen","Available in Essen","In Essen",
+				     "Presence at Essen","At the fair","Presence","Essen:","Att. Spiel"]),
+    Presense=remove_strs(Presense1,["at SPIEL'16 ","at SPIEL ","Presence ","at SPIEL'16"," '16","at SPIEL'15","Attendence in Essen ",
+					"on the fair ","at Spiel'16 ","at SPIEL16","Att. Spiel "," at Spiel","  in Essen "]),
     Auction_ends=case find_info(Text,"Auction ends:") of
 		     "" -> find_info(Text,"Auction end");
 		     Info ->
 				Info
 		 end,
     {Actual_bid,Winner,Comments} = check_comments(no_bid,"",CList,{AI#auction_item.item_no,AI#auction_item.object_id},[]),
-    Sold=case find_info(Text,"Sold:") of
+    Sold1=case find_info(Text,"Sold") of
 	     "" -> check_bid(Bin,Actual_bid);
-	     _ -> yes
+	     _ -> true
     end,
+    Sold2=case string:str(Condition,"[-]") of
+	     0 -> false;
+	     _ -> true
+    end,
+    Sold=Sold1 or Sold2,
+
     AI#auction_item{condition=Condition,    
 		    language=Language,
 		    lang_dep=Lang_dep,
@@ -148,17 +178,28 @@ fill_other_item_info(AI,{<<"body">>,_,[Body]},CList) ->
 		    comments=Comments,
 		    body=Body}.
 
+find_info_opts(_S,[]) ->
+    "";
+find_info_opts(String,[Pattern|PList]) ->
+    case find_info(String,Pattern) of
+	"" ->
+	    find_info_opts(String,PList);
+	Result ->
+	    Result
+    end.
+
 find_info(String,Pattern) ->
     RegExp=string:concat(string:concat("^.*(",Pattern),").*$"),
     Res=case re:run(String,RegExp,[multiline,{capture,all,list},caseless]) of
 	nomatch ->
 	    "";
 	{match,[Result|_Other]} ->
-	    re:replace(Result,Pattern,"", [{return, list}, global]);
+	    R1=re:replace(Result,Pattern,"", [{return, list}, global]),
+	    re:replace(R1,[226,128,147],"-", [{return, list}, global]);
 	_ ->
 	    ""
 	end,
-    remove_special_str(Res,[":","[b]","[/b]","\r"]).
+    remove_special_str(Res,?REMOVE_STRANGE_CHARS).
 
 
 check_comments(no_bid,"",[],_,_) ->
@@ -262,6 +303,7 @@ print(Category,Text) ->
 	io:format("~s ~p~n",[Category,Text])
     end.
 
+
 summarize_wins([]) ->
     "";
 summarize_wins([Obj|ObjList]) ->
@@ -275,6 +317,7 @@ summarize_wins([Obj|ObjList]) ->
     print("BIN: \t\t",Obj#auction_item.bin),
     print("Actual bid: \t",Obj#auction_item.actual_bid),
     print("Actual winner: \t",Obj#auction_item.actual_winner),
+    print("Sold: \t\t",Obj#auction_item.sold),
     print("Pres. & Essen: \t",Obj#auction_item.presense_at_essen),
     print("Auction ends: \t",Obj#auction_item.auction_ends),
     io:format("------------ITEM END-----------~n",[]),
@@ -294,6 +337,14 @@ remove_special_str(Text,[SubStr|StrList]) ->
        end,
     remove_special_str(T1,StrList).
     
+remove_strs(String,[]) ->
+    String;
+remove_strs(String,[SubStr|List]) ->
+    remove_strs(remove_str(String,SubStr),List).
+
+remove_str(String,SubStr) ->
+    re:replace(String,SubStr,"", [{return, list}, global]).
+
 check_bid(_Bin,no_bid) -> false;
 check_bid("",_Actual_bid) -> false;
 check_bid(_Bin,bin) -> true; 
@@ -303,3 +354,46 @@ check_bid(Bin,Bid) ->
     BidN=find_number_or_bin(Bid,Bid),
     BinN==BidN. 
     
+replace_strange_chars(String,[]) ->
+    String;
+replace_strange_chars(String,[{K,V}|List]) ->
+    Res= re:replace(String,K,V,[{return, list}, global]),
+    replace_strange_chars(Res,List).
+
+items_without_bid() ->
+    items_without_bid(no_file).
+
+items_without_bid(FileName) ->
+
+    case mnesia:dirty_match_object(auction_items, #auction_item{_ = '_', actual_bid=no_bid, sold=false}) of
+	[] ->
+	    not_found;
+	ObjList ->
+	    case FileName of
+		no_file ->
+		    short_list(ObjList);
+		FName  ->
+		    bgg_feed_utils:dump_to_file(ObjList,FName)
+		end
+	    end.    
+
+short_list([]) ->
+    [];
+short_list([Obj|List]) ->
+    io:format("------------ITEM FOUND-----------~n",[]),
+    print("Item_no: \t",Obj#auction_item.item_no),
+    print("Game name:\t",Obj#auction_item.object_name),
+%    print("Owned by:\t",Obj#auction_item.username),
+    print("Condition: \t",Obj#auction_item.condition),
+%    print("Language: \t",Obj#auction_item.language),
+%    print("Lang_dep: \t",Obj#auction_item.lang_dep),
+    print("BIN: \t\t",Obj#auction_item.bin),
+    print("Starting bid: \t",Obj#auction_item.starting_bid),
+%    print("Actual winner: \t",Obj#auction_item.actual_winner),
+%    print("Sold: \t\t",Obj#auction_item.sold),
+    print("Pres. & Essen: \t",Obj#auction_item.presense_at_essen),
+    print("Auction ends: \t",Obj#auction_item.auction_ends),
+    short_list(List).
+
+
+
