@@ -4,11 +4,13 @@
 -export([what_wins/1]).
 -export([traded_by/1]).
 -export([items_without_bid/0,items_without_bid/1]).
+-export([dump_to_file/0]).
+-export([read_by_page_proc/4]).
 
 % -export([remove_special_str/2]).
 -include("../include/record.hrl").
 
--define(ESSEN_NSA_2016,"https://boardgamegeek.com/xmlapi/geeklist/211885?comments=1").
+-define(ESSEN_NSA_2016,"https://boardgamegeek.com/xmlapi/geeklist/211885").
 
 -define(STRANGE_CHR_REPLACEMENTS,[{[226,130,172]," EUR"},{[195,175],"i"}, {[195,188],"ü"},{[195,132],"A"},
 				  {[195,136],"E"},{[195,32],"a "},{[195,164],"a"},{[195,169],"é"},{[195,182],"ö"},
@@ -29,8 +31,24 @@ read(Url) ->
     mnesia:create_schema([node()]),
     mnesia:start(),
     create_auction_table(),
-    io:format(" hackney:request, Url=~p~n",[Url]),
-    case hackney:request(get,Url,[],<<"?comments=1">>) of
+    read(Url,1).
+
+read(Url,3) ->
+    %was not able to read the list with comments 5 times
+    %reason of the problem can be that the size of the list so huge, BGG is not able to respond in time
+    %try to ask information per pages (100 item per page)
+    % 1 step -> ask the list without comments and get the size of the list
+    {ok, Body}=ask_url(Url),
+    Struct=mochiweb_html:parse(Body),
+    Path="geeklist/numitems",
+    [{<<"numitems">>,[],[BinNum]}]=mochiweb_xpath:execute(Path,Struct),
+    ItemNo=list_to_integer(binary_to_list(BinNum)),
+    PageNo=1+ItemNo div 100,
+    read_by_page(Url,PageNo,PageNo);  
+read(Url,N) ->
+    Url1=Url ++ "?comments=1",
+    io:format(" hackney:request, Url1=~p~n",[Url1]),
+    case hackney:request(get,Url1,[],<<"?comments=1">>) of
 	{ok,200,_Head,Ref} ->
 	    {ok,Body} = hackney:body(Ref),
 	    {ok,F} = file:open("auction2016.txt",[read,write,{encoding,utf8}]),
@@ -49,20 +67,90 @@ read(Url) ->
 	{ok, 202,_Head,_Ref} ->
 	    io:format("request accepted, wait a bit,",[]),
 	    timer:sleep(10000),
-	    read(Url);
+	    read(Url,1);
 	{error, closed} ->
 	    %let'ss try agin ?
-	    io:format("request failed, let's try again ~p~n",[{error, closed}]),
+	    io:format("request failed, let's try again ~p, N=~p~n",[{error, closed},N]),
 	    timer:sleep(10000),
-	    read(Url);	 
+	    read(Url,N+1);	 
 	{error, timeout} ->
 	    %let'ss try agin ?
-	    io:format("request failed, let's try again ~p~n",[{error, timeout}]),
+	    io:format("request failed, let's try again ~p, N=~p~n",[{error, timeout},N]),
 	    timer:sleep(10000),
-	    read(Url);	    
+	    read(Url,N+1);	    
 	Result -> io:format("Http request failed, Result=~p~n",[Result])
     end.
 
+read_by_page(_Url,0,_PageNo) ->
+    ok;
+read_by_page(Url,N,PageNo) ->
+    Pid=spawn(?MODULE,read_by_page_proc,[Url,N,PageNo,self()]),
+    io:format("read_by_page_proc for N=~p spawned, Pid=~p ~n",[N,Pid]),
+    receive
+	{ask_url_ok,Pid} ->
+	    io:format("ask_url finished, ack received, N=~p~n",[N])
+    after
+	60000 ->
+	    io:format("ask_url not finished in time for N=~p, potential hanging, restart hackney~n",[N]),
+	    try
+		hackney:stop()
+	    catch
+		_Exit -> ok
+	    end,
+	    timer:sleep(10000),
+	    hackney:start(),
+	    %% as hackney was restarted let's kill the process which detected teh hanging;
+	    %% new process will be spawned instead
+	    exit(Pid,normal),
+	    read_by_page(Url,N,PageNo)
+    end,
+    timer:sleep(1000),
+    read_by_page(Url,N-1,PageNo).
+    
+read_by_page_proc(Url,N,PageNo,Sender_Pid) ->
+    io:format(" read_by_page, Url=~p,PageNo=~p, N=~p~n",[Url,PageNo,N]),
+    StartNum=100*(N-1)+1,
+    Url1=Url ++ "?comments=1&page="++integer_to_list(N),
+    {ok, Body}=ask_url(Url1),
+    Sender_Pid ! {ask_url_ok,self()},
+    Struct=mochiweb_html:parse(Body),
+    Path="geeklist/item",
+    ItemList=mochiweb_xpath:execute(Path,Struct),
+    store_items(ItemList,StartNum). 
+
+ask_url(Url) ->
+    io:format("ask_url, Url=~p~n",[Url]),
+    case hackney:request(get,Url,[], <<>>, [{pool,default},{timeout, 150000}, {max_connections, 100}]) of
+	{ok,200,_Head,Ref} ->
+	    io:format("ask_url, Url=~p request answer code = 200~n",[Url]),
+	    {ok,Body} = hackney:body(Ref),
+	    {ok,Body};
+	{ok, 202,_Head,_Ref} ->
+	    io:format("request accepted, wait a bit,Url=~p~n",[Url]),
+	    timer:sleep(1000),
+	    ask_url(Url);
+	{error, closed} ->
+	    %let'ss try agin ?
+	    io:format("aks_url request failed, let's try again Url=~p, ~p~n",[Url,{error, closed}]),
+	    timer:sleep(10000),
+	    ask_url(Url);	 
+	{error, timeout} ->
+	    %let'ss try agin ?
+	    io:format("aks_url request failed, let's try again Url=~p, ~p~n",[Url,{error, timeout}]),
+	    timer:sleep(10000),
+	    ask_url(Url);
+	{error, bad_request} ->
+	    %let'ss try agin ?
+	    io:format("aks_url request failed, let's try again Url=~p, ~p~n",[Url,{error, bad_request}]),
+	    timer:sleep(15000),
+	    ask_url(Url);
+	{error, enetdown} ->
+	    %let'ss try agin ?
+	    io:format("aks_url request failed, let's try again Url=~p, ~p~n",[Url,{error, enetdown}]),
+	    timer:sleep(25000),
+	    ask_url(Url);
+	Result -> io:format("Http request (ask_url) failed, Result=~p~n",[Result])
+    end.
 create_auction_table()->
     case mnesia:create_table(auction_items, 
                              [{disc_copies,[node()]},
@@ -397,3 +485,7 @@ short_list([Obj|List]) ->
 
 
 
+dump_to_file() ->
+    bgg_feed_utils:dump_to_file(auction_items,?OUT),
+    Cmd="cp "++ ?OUT ++ " "++ ?DROPBOX_PUBLIC ++ ".",
+    os:cmd(Cmd).
