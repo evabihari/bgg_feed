@@ -82,13 +82,16 @@ read(Url,N) ->
     end.
 
 read_by_page(_Url,0,_PageNo) ->
-    ok;
+    io:format("dump result to: ~s~n",[?OUT]),
+    dump_to_file();
 read_by_page(Url,N,PageNo) ->
     Pid=spawn(?MODULE,read_by_page_proc,[Url,N,PageNo,self()]),
     io:format("read_by_page_proc for N=~p spawned, Pid=~p ~n",[N,Pid]),
     receive
 	{ask_url_ok,Pid} ->
-	    io:format("ask_url finished, ack received, N=~p~n",[N])
+	    io:format("ask_url finished, ack received, N=~p~n",[N]),
+	    timer:sleep(1000),
+	    read_by_page(Url,N-1,PageNo)
     after
 	60000 ->
 	    io:format("ask_url not finished in time for N=~p, potential hanging, restart hackney~n",[N]),
@@ -99,13 +102,11 @@ read_by_page(Url,N,PageNo) ->
 	    end,
 	    timer:sleep(10000),
 	    hackney:start(),
-	    %% as hackney was restarted let's kill the process which detected teh hanging;
+	    %% as hackney was restarted let's kill the process which detected the hanging;
 	    %% new process will be spawned instead
 	    exit(Pid,normal),
 	    read_by_page(Url,N,PageNo)
-    end,
-    timer:sleep(1000),
-    read_by_page(Url,N-1,PageNo).
+    end.
     
 read_by_page_proc(Url,N,PageNo,Sender_Pid) ->
     io:format(" read_by_page, Url=~p,PageNo=~p, N=~p~n",[Url,PageNo,N]),
