@@ -227,10 +227,6 @@ fill_other_item_info(AI,{<<"body">>,_,[Body]},CList) ->
 											  "COLOR=#FF0000","[size=10]","[/size]","[b]","[/b]",
 											  "[size=14]"]),
     Starting_bid=replace_strange_chars(Starting_bid1,?STRANGE_CHR_REPLACEMENTS),
-    %% Bin2=case find_info(Text,"BIN:") of
-    %% 	    "" -> find_info(Text,"Buyout price");
-    %% 	    Bin1 -> Bin1
-    %% end,
     Bin1=remove_special_str(find_info_opts(Text,["BIN","Buyout price"]),["[b]","[/b]","Bin","[size=10]","[/size]"]),
     Bin=replace_strange_chars(Bin1,?STRANGE_CHR_REPLACEMENTS),
     Presense1=find_info_opts(Text,["Attendance","At Spiel","att. Spiel","Attending","Presence in Essen","Available in Essen","In Essen",
@@ -242,8 +238,11 @@ fill_other_item_info(AI,{<<"body">>,_,[Body]},CList) ->
 		     Info ->
 				Info
 		 end,
-    {Actual_bid,Winner,Comments} = check_comments(no_bid,"",CList,{AI#auction_item.item_no,AI#auction_item.object_id},[]),
-    Sold1=case find_info(Text,"Sold") of
+   % io:format("before check_comments,CList=~p Owner=~p~n",[CList, AI#auction_item.username]),
+    {Actual_bid,Winner,Comments} = check_comments(no_bid,"",CList,{AI#auction_item.item_no,AI#auction_item.object_id},[],
+						  AI#auction_item.username),
+   % io:format("after check_comments, Winner=~p, Owner=~p~n",[Winner, AI#auction_item.username]),
+    Sold1=case find_info_opts(Text,["Sold","Closed"]) of
 	     "" -> check_bid(Bin,Actual_bid);
 	     _ -> true
     end,
@@ -291,23 +290,29 @@ find_info(String,Pattern) ->
     remove_special_str(Res,?REMOVE_STRANGE_CHARS).
 
 
-check_comments(no_bid,"",[],_,_) ->
+check_comments(no_bid,"",[],_,_,_) ->
     {no_bid,"",[]};
-check_comments(Actual_Bid,Winner,[],_,Comments) ->
+check_comments(Actual_Bid,Winner,[],_,Comments,_Owner) ->
     {Actual_Bid,Winner,Comments};
-check_comments(Actual_Bid,Winner,[{<<"comment">> ,_Properties,[]}|C_List],{Item_no,Object_id},Comments) ->
-    check_comments(Actual_Bid,Winner,C_List,{Item_no,Object_id},Comments);
-check_comments(Actual_Bid,Winner,[{<<"comment">> ,Properties,[Body|_]}|C_List],{Item_no,Object_id},Comments) ->
+check_comments(Actual_Bid,Winner,[{<<"comment">> ,_Properties,[]}|C_List],{Item_no,Object_id},Comments,Owner) ->
+    check_comments(Actual_Bid,Winner,C_List,{Item_no,Object_id},Comments,Owner);
+check_comments(Actual_Bid,Winner,[{<<"comment">> ,Properties,[Body|_]}|C_List],{Item_no,Object_id},Comments,Owner) ->
     Bid=find_number_or_bin(binary_to_list(Body),Actual_Bid),
-    UserName=checkType(Properties,[<<"username">>]),
+    UserName=lists:flatten(checkType(Properties,[<<"username">>])),
     Winner1=case Bid of
 	no_bid -> Winner;
-	_ -> UserName
+	_ -> case UserName of
+		 Owner ->
+		    % if the comments were given by teh owner of the game put on auction don't modify the winner 
+		     Winner;
+		 _ ->
+		    UserName
+	     end
     end,
     check_comments(Bid,Winner1,C_List,{Item_no,Object_id},lists:append(Comments, [#comment{connected_item_no=Item_no,
 											  connected_object_id=Object_id,
 											  username=UserName,
-											  bid=Bid}])).
+											  bid=Bid}]),Owner).
 
 find_number_or_bin(Text,OrigValue) ->
     case re:run(Text,"\\d+",[{capture, all, list}]) of
@@ -341,7 +346,7 @@ find(GameName) ->
 what_wins(User) when is_atom(User) ->
     what_wins(atom_to_list(User));
 what_wins(User) ->
-    case mnesia:dirty_match_object(auction_items, #auction_item{_ = '_', actual_winner=[User]}) of
+    case mnesia:dirty_match_object(auction_items, #auction_item{_ = '_', actual_winner=User}) of
 	[] ->
 	    not_found;
 	ObjList ->
