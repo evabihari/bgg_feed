@@ -242,7 +242,7 @@ fill_other_item_info(AI,{<<"body">>,_,[Body]},CList) ->
     {Actual_bid,Winner,Comments} = check_comments(no_bid,"",CList,{AI#auction_item.item_no,AI#auction_item.object_id},[],
 						  AI#auction_item.username),
    % io:format("after check_comments, Winner=~p, Owner=~p~n",[Winner, AI#auction_item.username]),
-    Sold1=case find_info_opts(Text,["Sold","Closed"]) of
+    Sold1=case find_info_opts(Text,["Sold","Closed","Winner"]) of
 	     "" -> check_bid(Bin,Actual_bid);
 	     _ -> true
     end,
